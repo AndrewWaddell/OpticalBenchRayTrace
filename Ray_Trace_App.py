@@ -23,6 +23,7 @@ class Shape:
         pass
     def rotate(self,axis):
         '''rotate shape around axis'''
+        #rotate
     def scale(self):
         '''change size of shape by modifying points'''
         pass
