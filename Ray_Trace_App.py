@@ -27,6 +27,7 @@ class Shape:
         #rotate
     def scale(self):
         '''change size of shape by modifying points'''
+        # will need more effort
         pass
     def translate(self,v):
         '''move shape in direction and distance of v'''
