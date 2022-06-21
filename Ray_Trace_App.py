@@ -86,6 +86,34 @@ class aspheric:
             self.cm.append([self.depth*ring+1+i,self.depth*ring+1,self.depth*(ring+1)+1])
             self.cm.append([self.depth*ring+1+i,self.depth*(ring+1)+1+i,self.depth*(ring+1)+1])
 
+def create_octahedron(shape):
+    x = shape.p[:,0]
+    y = shape.p[:,1]
+    z = shape.p[:,2]
+    p = []
+    p.append([min(x), min(y), min(z)])
+    p.append([max(x), min(y), min(z)])
+    p.append([min(x), max(y), min(z)])
+    p.append([max(x), max(y), min(z)])
+    p.append([min(x), min(y), max(z)])
+    p.append([max(x), min(y), max(z)])
+    p.append([min(x), max(y), max(z)])
+    p.append([max(x), max(y), max(z)])
+    cm = [[0, 1, 3],
+          [0, 2, 3],
+          [0, 1, 5],
+          [0, 4, 5],
+          [2, 6, 7],
+          [2, 3, 7],
+          [1, 3, 7],
+          [1, 5, 7],
+          [0, 2, 6],
+          [0, 4, 6],
+          [4, 5, 7],
+          [4, 6, 7]]
+    p = np.asarray(p)
+    cm = np.asarray(cm)
+    return p, cm    
 
 def startupfcn():
     global numrays_slider_var
