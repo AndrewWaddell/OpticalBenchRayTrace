@@ -32,24 +32,29 @@ class Triangulated(Shape):
     def translate(self,v):
         '''move shape in direction and distance of v'''
         self.p += v
+    def trace(self):
+        pass
 
-class create_rays:
-    def __init__(self,num,p,up,n):
-        self.num = num # number of rays generated
-        self.p = np.zeros((num,3))
-        self.up = np.transpose(np.tile(np.array(up)[...,None],(1,num))) # unit direction vectors
-        for ray in range(num):
-            theta = random.randint(0,1000)*2*np.pi/1000
-            radius = random.randint(0,1000)/1000
-            self.p[ray][0] = radius*np.cos(theta) + p[0] # x
-            self.p[ray][1] = radius*np.sin(theta) + p[2] # y
-            self.p[ray][2] = p[1] # z
+class Rays:
+    def __init__(self,numrays,p,up,n):
+        self.numrays = numrays # number of rays generated
+        # self.p = np.zeros((num,3))
+        # self.up = np.transpose(np.tile(np.array(up)[...,None],(1,num))) # unit direction vectors
+        # for ray in range(numrays):
+        #     theta = random.randint(0,1000)*2*np.pi/1000
+        #     radius = random.randint(0,1000)/1000
+        #     self.p[ray][0] = radius*np.cos(theta) + p[0] # x
+        #     self.p[ray][1] = radius*np.sin(theta) + p[2] # y
+        #     self.p[ray][2] = p[1] # z
+        self.p = p
+        self.up = up
         self.pacc = np.copy(self.p) # accumulated p
         self.upacc = np.copy(self.up) # accumulated up
-        self.dacc = np.zeros(num)# accumulated d
-        self.origin = np.arange(num) # index of ray origin in dacc (mutable)
-        self.n = np.repeat(n,num) # refractive index for current medium
-        self.inshape = np.repeat(False,num) # within shape bool
+        self.dacc = np.zeros(numrays)# accumulated d
+        self.origin = np.arange(numrays) # index of ray origin in dacc (mutable)
+        self.n = np.repeat(n,numrays) # refractive index for current medium
+        self.inside = np.repeat(False,numrays) # within shape boolean (switches upon intersection)
+        self.wavelength = np.repeat('visible',numrays) # visible or infrared - modify later to nm
         
 class aspheric:
     def __init__(self,R,k,a4,a6,d):
