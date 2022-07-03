@@ -27,7 +27,10 @@ class Triangulated(Shape):
         '''move shape in direction and distance of v'''
         self.p += v
     def trace(self):
-        pass
+        # go through sources
+        rays = Rays()
+        # cob: dimensions: (,numrays) 
+        
 
 class Rays:
     def __init__(self,numrays,p,up,n):
@@ -139,11 +142,6 @@ def trace():
     global numrays_slider_var
     global shapes,rays
     
-    '''Initialise rays'''
-    rays = create_rays(int(numrays_slider_var.get()),
-                       [float(x_input.get()),float(y_input.get()),float(z_input.get())], #p
-                       [float(upx.get()),float(upy.get()),float(upz.get())],#up
-                       1) # refractive index of air
     '''Trace'''
     
     for ray in range(rays.num):
