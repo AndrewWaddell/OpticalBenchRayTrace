@@ -5,11 +5,6 @@ Created on Fri Feb 25 16:29:15 2022
 @author: ihipt
 """
 
-import tkinter as tk
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import random
-# from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk as n
 import numpy as np
 
 
@@ -121,36 +116,23 @@ def create_octahedron(shape):
     cm = np.asarray(cm)
     return p, cm    
 
-def startupfcn():
-    global numrays_slider_var
-    global extend_rays_input
-    numrays_slider_var.set(5)
-    extend_rays_input.insert(tk.END,'1')
-    x_input.insert(tk.END,'0')
-    y_input.insert(tk.END,'-1')
-    z_input.insert(tk.END,'0')
-    upx.insert(tk.END,'0')
-    upy.insert(tk.END,'0')
-    upz.insert(tk.END,'1')
-    createshape()
-    trace()
 
-def plotshapes():
-    global shapes
-    for shape in shapes:
-        '''lines'''
-        # decided not to show shape points
-        for triangle in shape.cm:
-            X = [shape.p[triangle[2]][0]]
-            Y = [shape.p[triangle[2]][1]]
-            Z = [shape.p[triangle[2]][2]]
-            for point in triangle:
-                [x,y,z] = shape.p[point]
-                X.append(x)
-                Y.append(y)
-                Z.append(z)
-            plot3d.plot(X,Y,Z)
-        canvas.draw()
+# Kept this function for understanding of how to index points
+# def plotshapes():
+#     global shapes
+#     for shape in shapes:
+#         '''lines'''
+#         # decided not to show shape points
+#         for triangle in shape.cm:
+#             X = [shape.p[triangle[2]][0]]
+#             Y = [shape.p[triangle[2]][1]]
+#             Z = [shape.p[triangle[2]][2]]
+#             for point in triangle:
+#                 [x,y,z] = shape.p[point]
+#                 X.append(x)
+#                 Y.append(y)
+#                 Z.append(z)
+#             plot3d.plot(X,Y,Z)
 
 def createshape():
     global shapes
@@ -201,12 +183,6 @@ def trace():
                 rays.dacc[rays.origin[ray]] = shortest_distance
                 rays.origin[ray] = len(rays.dacc)-1
     extend_rays()
-    plot3d.clear()
-    plotshapes()
-    plotrays()
-    plot3d.set_xlim(-1,1)
-    plot3d.set_ylim(-1,1)
-    plot3d.set_zlim(-1,1)
 
     
 def find_change_of_basis_matrix(v):
@@ -270,95 +246,10 @@ def extend_rays():
         if d==0:
             rays.dacc[i] = float(extend_rays_input.get())
             
-def plotrays():
-    global plot3d
-    global rays
-    upd = np.multiply(np.transpose(rays.upacc),rays.dacc)
-    x = np.transpose(rays.pacc)[0]
-    y = np.transpose(rays.pacc)[1]
-    z = np.transpose(rays.pacc)[2]
-    plot3d.quiver(x,y,z,upd[0],upd[1],upd[2])
-    canvas.draw()
+# Kept function to remind of the default data structure for rays
+# def plotrays():
+#     upd = np.multiply(np.transpose(rays.upacc),rays.dacc)
+#     plot3d.quiver(x,y,z,upd[0],upd[1],upd[2])
         
 
-'''setup code'''
 
-window = tk.Tk()
-
-window.title('3D Quiver Plot')
-
-numrays_slider_var = tk.DoubleVar()
-
-
-
-'''create widgets'''
-
-
-trace_button = tk.Button(master = window,
-                        command = trace,
-                        text = "Trace")
-translate_rays_button = tk.Button(master=window,
-                         # command = translate_rays_callback,
-                         text = "Translate Rays")
-numrays_slider = tk.Scale(master = window,
-                          variable = numrays_slider_var,
-                          from_ = 30,
-                          to = 300,
-                          orient = tk.HORIZONTAL)
-extend_rays_input = tk.Entry(window)
-extend_rays_label = tk.Label(window,text='Extend Rays')
-x_input = tk.Entry(window)
-x_label = tk.Label(window,text='px')
-y_input = tk.Entry(window)
-y_label = tk.Label(window,text='pz')
-z_input = tk.Entry(window)
-z_label = tk.Label(window,text='py')
-upx = tk.Entry(window)
-upx_label = tk.Label(window,text='upx')
-upy = tk.Entry(window)
-upy_label = tk.Label(window,text='upy')
-upz = tk.Entry(window)
-upz_label = tk.Label(window,text='upz')
-
-
-'''Create Axes'''
-
-fig = Figure(figsize = (5, 5), dpi = 100) # 500 x 500
-
-
-canvas = FigureCanvasTkAgg(fig,master = window)
-canvas.draw()
-canvas.get_tk_widget().pack()
-plot3d = fig.add_subplot(projection='3d')
-
-startupfcn()
-
-'''assemble window'''
-
-
-numrays_slider.pack()
-trace_button.pack()
-translate_rays_button.pack()
-extend_rays_input.pack()
-extend_rays_label.pack()
-x_input.pack()
-y_input.pack()
-z_input.pack()
-upx.pack()
-upy.pack()
-upz.pack()
-
-translate_rays_button.place(x=612-150,y=500)
-trace_button.place(x=0,y=500)
-numrays_slider.place(x=50,y=500)
-extend_rays_label.place(x=312,y=500)
-h = 19
-x_label.place(x=312,y=500+h*1)
-y_label.place(x=312,y=500+h*2)
-z_label.place(x=312,y=500+h*3)
-upx_label.place(x=312,y=500+h*4)
-upy_label.place(x=312,y=500+h*5)
-upz_label.place(x=312,y=500+h*6)
-window.geometry('500x650')
-
-window.mainloop()
