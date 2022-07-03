@@ -14,19 +14,20 @@ import numpy as np
 
 
 class Shape:
-    def __init__(self,p,cm,n,name=''):
+    def __init__(self,location,direction,n,name=''):
         self.name = name # shape label e.g. lens
+        self.location = location # translation from source points
+        self.direction # new orientation of x axis vector
+        self.n = n # refractive index of inner medium
+
+
+class Triangulated(Shape):
+    def __init__(self,location,direction,n,p,cm,name=''):
+        super().__init__(location,direction,n,name)
         self.p = p # All shape vertices in 3D (points)
         self.cm = cm # triangle connectivity matrix (sides)
-        self.n = n # refractive index of inner medium
-    def centre(self):
-        '''determine centre point'''
-        pass
-    def rotate(self,axis):
-        '''rotate shape around axis'''
-        #rotate
-    def scale(self):
-        '''change size of shape by modifying points'''
+    def rotate(self,axis_loc,axis_dir):
+        '''rotate points clockwise around axis defined as a vector with location and direction'''
         pass
     def translate(self,v):
         '''move shape in direction and distance of v'''
