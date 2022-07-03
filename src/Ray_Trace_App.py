@@ -7,7 +7,6 @@ Created on Fri Feb 25 16:29:15 2022
 
 import numpy as np
 
-
 class Shape:
     def __init__(self,location,direction,n,name=''):
         self.name = name # shape label e.g. lens
@@ -33,14 +32,6 @@ class Triangulated(Shape):
 class Rays:
     def __init__(self,numrays,p,up,n):
         self.numrays = numrays # number of rays generated
-        # self.p = np.zeros((num,3))
-        # self.up = np.transpose(np.tile(np.array(up)[...,None],(1,num))) # unit direction vectors
-        # for ray in range(numrays):
-        #     theta = random.randint(0,1000)*2*np.pi/1000
-        #     radius = random.randint(0,1000)/1000
-        #     self.p[ray][0] = radius*np.cos(theta) + p[0] # x
-        #     self.p[ray][1] = radius*np.sin(theta) + p[2] # y
-        #     self.p[ray][2] = p[1] # z
         self.p = p
         self.up = up
         self.pacc = np.copy(self.p) # accumulated p
