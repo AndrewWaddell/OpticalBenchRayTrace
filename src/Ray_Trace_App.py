@@ -199,10 +199,11 @@ def change_of_basis(v):
     This function operates on multiple vectors at once where v is a 
     matrix consisting of each vector nested within it. v is shape
     (numrays,3)'''
+    numrays = v.shape[0]
     orth1 = GramSmchidt(v)
     orth2 = np.cross(orth1,v)
-    P = np.asmatrix([orth1,orth2,v]).T # vectors form the columns
-    Pnorm = np.divide(P,np.linalg.norm(P,axis=0)) # useful if the vectors are normalised
+    P = np.concatenate((orth1,orth2,v),axis=1).reshape(numrays,3,3).transpose(0,2,1)
+    Pnorm = np.divide(P,np.tile(np.linalg.norm(P,axis=1),3).reshape(numrays,3,3))
     Pinv = np.linalg.inv(Pnorm)
     return Pinv
 
@@ -212,7 +213,7 @@ def GramSmchidt(u1):
     u1 is vectorised to work on multiple rays and should be shape
     (numrays,3)'''
     v = np.copy(u1) # first create an arbitrary vector v, that isn't u
-    while np.all(v==u1,axis=1): # for the unlikely event random gives u
+    while np.any(np.all(v==u1,axis=1)): # for the unlikely event any random v gives u
         v = np.random.randn(u1.shape[0],3)
     u2 = v - projection_operator(u1,v)
     return u2
