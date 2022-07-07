@@ -212,15 +212,20 @@ def GramSmchidt(u1):
     u1 is vectorised to work on multiple rays and should be shape
     (numrays,3)'''
     v = np.copy(u1) # first create an arbitrary vector v, that isn't u
-    while np.all(v==u1): # for the unlikely event random gives u
-        v = np.random.randn(3)
+    while np.all(v==u1,axis=1): # for the unlikely event random gives u
+        v = np.random.randn(u1.shape[0],3)
     u2 = v - projection_operator(u1,v)
     return u2
 
 def projection_operator(u,v):
-    '''projects the vecor v orthogonally onto the line spanned by vector u'''
-    scalar = np.dot(u,v)/np.dot(u,u)
-    proj_u_v = np.multiply(scalar,u)
+    '''projects the vector v orthogonally onto the line spanned by vector u
+    inputs u and v are vectorised into a matrix where each nested entry 
+    represents each ray'''
+    numrays = u.shape[0]
+    udotv = np.inner(u,v)[np.nonzero(np.eye(numrays))]
+    udotu = np.square(np.linalg.norm(u,axis=1))
+    scalar = np.divide(udotv,udotu)
+    proj_u_v = np.multiply(u,np.repeat(scalar,3).reshape(numrays,3))
     return proj_u_v
 
 
