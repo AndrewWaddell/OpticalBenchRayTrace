@@ -194,23 +194,35 @@ def find_change_of_basis_matrix(v):
     return Pinv
 
 def change_of_basis(v):
-    # intended to be a faster and more intuitivie change of basis, that works for multiple rays
-    # input v is one of the vectors that we want in our basis. Must be numpy array
-    # next step is to find any pair of orthogonal vectors to create basis
-    # first we create orth1, which is an arbitrarily chosen orthongal vector
-    orth1 = np.copy(v)
-    while np.all(orth1==v): # correct way of writing for orth1 == v
-        orth1=np.random.randn(1,3) # start with a random vector that isn't v
-    orth1 -= np.divide(np.multiply(np.dot(orth1,v),v),np.linalg.norm(v)**2) # make it orthogonal to v using Gram-Schmidt process
-    normals = np.zeros((1))
-    normals = np.linalg.norm(orth1)
-    orth1 = np.divide(orth1,normals)
-    # obtain second orthogonal vector
-    orth2 = np.cross(v,orth1)
-    # create matrix using the vectors
-    P = np.asmatrix([orth1,orth2,v])
-    Pinv = np.linalg.inv(P)
+    '''computes a non-unique change of basis matrix for a vector in R3.
+    The 3rd dimension of the basis set is along the direction of v.
+    This function operates on multiple vectors at once where v is a 
+    matrix consisting of each vector nested within it. v is shape
+    (numrays,3)'''
+    orth1 = GramSmchidt(v)
+    orth2 = np.cross(orth1,v)
+    P = np.asmatrix([orth1,orth2,v]).T # vectors form the columns
+    Pnorm = np.divide(P,np.linalg.norm(P,axis=0)) # useful if the vectors are normalised
+    Pinv = np.linalg.inv(Pnorm)
     return Pinv
+
+def GramSmchidt(u1):
+    '''produces one new vector u2 that is orthogonal to vector u1.
+    u1 is in R3 and must have 3 entries.
+    u1 is vectorised to work on multiple rays and should be shape
+    (numrays,3)'''
+    v = np.copy(u1) # first create an arbitrary vector v, that isn't u
+    while np.all(v==u1): # for the unlikely event random gives u
+        v = np.random.randn(3)
+    u2 = v - projection_operator(u1,v)
+    return u2
+
+def projection_operator(u,v):
+    '''projects the vecor v orthogonally onto the line spanned by vector u'''
+    scalar = np.dot(u,v)/np.dot(u,u)
+    proj_u_v = np.multiply(scalar,u)
+    return proj_u_v
+
 
 def triangle_interior(query,p1,p2,p3):
     v1 = p2-p1
@@ -260,7 +272,6 @@ def snells_law(line,plane,n1,n2,inshape):
 # def plotrays():
 #     upd = np.multiply(np.transpose(rays.upacc),rays.dacc)
 #     plot3d.quiver(x,y,z,upd[0],upd[1],upd[2])
-        
 
-
-print(change_of_basis(np.array([1,1,1])))
+direction_vectors = np.random.randn(10,3).reshape(10,3)
+change_of_basis(direction_vectors)
