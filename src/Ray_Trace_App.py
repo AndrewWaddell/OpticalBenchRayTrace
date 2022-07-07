@@ -29,6 +29,7 @@ class Triangulated(Shape):
     def trace(self):
         # go through sources
         rays = Rays()
+        
         # cob: dimensions: (,numrays) 
         
 
