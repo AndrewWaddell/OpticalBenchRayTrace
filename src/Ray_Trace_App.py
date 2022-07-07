@@ -7,6 +7,7 @@ Created on Fri Feb 25 16:29:15 2022
 
 import numpy as np
 
+
 class Shape:
     def __init__(self,location,direction,n,name=''):
         self.name = name # shape label e.g. lens
@@ -181,7 +182,7 @@ def find_change_of_basis_matrix(v):
     orth2 = np.zeros((3,1))
     dim = 0
     while v[(dim+2)%3] == 0:
-        dim += 1
+        dim += 1 # choice of dimension such that we don't divide by 0 in dot product formula
     orth1[(dim+0)%3] = 1
     orth1[(dim+1)%3] = 2
     orth1[(dim+2)%3] = -(orth1[(dim+0)%3]*v[(dim+0)%3]+orth1[(dim+1)%3]*v[(dim+1)%3])/v[(dim+2)%3]
@@ -189,6 +190,25 @@ def find_change_of_basis_matrix(v):
     orth2[(dim+1)%3] = -2
     orth2[(dim+2)%3] = -(orth2[(dim+0)%3]*v[(dim+0)%3]+orth2[(dim+1)%3]*v[(dim+1)%3])/v[(dim+2)%3]
     P = np.concatenate((orth1,orth2,v[:].reshape(3,1)),axis=1)
+    Pinv = np.linalg.inv(P)
+    return Pinv
+
+def change_of_basis(v):
+    # intended to be a faster and more intuitivie change of basis, that works for multiple rays
+    # input v is one of the vectors that we want in our basis. Must be numpy array
+    # next step is to find any pair of orthogonal vectors to create basis
+    # first we create orth1, which is an arbitrarily chosen orthongal vector
+    orth1 = np.copy(v)
+    while np.all(orth1==v): # correct way of writing for orth1 == v
+        orth1=np.random.randn(1,3) # start with a random vector that isn't v
+    orth1 -= np.divide(np.multiply(np.dot(orth1,v),v),np.linalg.norm(v)**2) # make it orthogonal to v using Gram-Schmidt process
+    normals = np.zeros((1))
+    normals = np.linalg.norm(orth1)
+    orth1 = np.divide(orth1,normals)
+    # obtain second orthogonal vector
+    orth2 = np.cross(v,orth1)
+    # create matrix using the vectors
+    P = np.asmatrix([orth1,orth2,v])
     Pinv = np.linalg.inv(P)
     return Pinv
 
@@ -230,11 +250,11 @@ def snells_law(line,plane,n1,n2,inshape):
     normv = v/np.linalg.norm(v) # unit vector must be normalised
     return normv
 
-def extend_rays():
-    global rays
-    for i,d in enumerate(rays.dacc):
-        if d==0:
-            rays.dacc[i] = float(extend_rays_input.get())
+# def extend_rays():
+#     global rays
+#     for i,d in enumerate(rays.dacc):
+#         if d==0:
+#             rays.dacc[i] = float(extend_rays_input.get())
             
 # Kept function to remind of the default data structure for rays
 # def plotrays():
@@ -243,3 +263,4 @@ def extend_rays():
         
 
 
+print(change_of_basis(np.array([1,1,1])))
