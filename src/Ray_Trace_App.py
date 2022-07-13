@@ -8,6 +8,31 @@ Created on Fri Feb 25 16:29:15 2022
 import numpy as np
 
 
+class Scene:
+    def __init__(self):
+        self.sources = []
+        self.rays = Rays()
+        self.shapes = []
+    def trace(self):
+        for s in self.sources:
+            self.rays = Rays(s.numrays,s.p,s.up,s.n)
+        for s in self.shapes:
+            s.trace(self)
+    def add_source(self):
+        self.sources.append(Source())
+    def add_shape(self):
+        # placeholder for now
+        loc = np.array([0,0,0])
+        direc = np.array([1,0,0])
+        n = 1.52
+        p = np.array([[-1,-1,1],
+                      [3,3,2],
+                      [-1,3,3],
+                      [3,-1,4]])
+        cm = np.array([[0,2,3],
+                      [1,2,3]])
+        self.shapes.append(Triangulated(loc,direc,n,p,cm))
+
 class Shape:
     def __init__(self,location,direction,n,name=''):
         self.name = name # shape label e.g. lens
@@ -27,22 +52,10 @@ class Triangulated(Shape):
     def translate(self,v):
         '''move shape in direction and distance of v'''
         self.p += v
-    def trace(self):
+    def trace(self,scene):
         # go through sources
-        
-        
-        rays = Rays(numrays,p,up,n)
-        cob = change_of_basis(rays.up)
-        rays_cob = (cob*rays.p[:,np.newaxis,:]).sum(axis=2)
-        
-class Scene:
-    def __init__(self):
-        self.sources = []
-    def trace(self):
-        for s in self.sources:
-            self.rays = Rays(s.numrays,s.p,s.up,s.n)
-    def add_source(self):
-        self.sources.append(Source())
+        cob = change_of_basis(scene.rays.up)
+        rays_cob = (cob*scene.rays.p[:,np.newaxis,:]).sum(axis=2)
 
 class Source:
     def __init__(self):
@@ -318,5 +331,3 @@ def snells_law(line,plane,n1,n2,inshape):
 #     upd = np.multiply(np.transpose(rays.upacc),rays.dacc)
 #     plot3d.quiver(x,y,z,upd[0],upd[1],upd[2])
 
-fake_shape = Triangulated(0,0,0,0,0)
-fake_shape.trace()
