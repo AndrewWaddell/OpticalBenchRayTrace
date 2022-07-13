@@ -12,7 +12,7 @@ class Shape:
     def __init__(self,location,direction,n,name=''):
         self.name = name # shape label e.g. lens
         self.location = location # translation from source points
-        self.direction # new orientation of x axis vector
+        self.direction = direction # new orientation of x axis vector
         self.n = n # refractive index of inner medium
 
 
@@ -29,9 +29,20 @@ class Triangulated(Shape):
         self.p += v
     def trace(self):
         # go through sources
-        rays = Rays()
+        n=1
+        numrays = 9
+        x = np.repeat(np.arange(3),3)
+        y = np.tile(np.arange(3),3)
+        z = np.zeros(9)
+        p = np.column_stack((x,y,z))
+        x = np.zeros(9)
+        y = np.zeros(9)
+        z = np.ones(9)
+        up = np.column_stack((x,y,z))
+        rays = Rays(numrays,p,up,n)
+        cob = change_of_basis(rays.up)
+        rays_cob = (cob*rays.p[:,np.newaxis,:]).sum(axis=2)
         
-        # cob: dimensions: (,numrays) 
         
 
 class Rays:
@@ -279,5 +290,5 @@ def snells_law(line,plane,n1,n2,inshape):
 #     upd = np.multiply(np.transpose(rays.upacc),rays.dacc)
 #     plot3d.quiver(x,y,z,upd[0],upd[1],upd[2])
 
-direction_vectors = np.random.randn(10,3).reshape(10,3)
-change_of_basis(direction_vectors)
+fake_shape = Triangulated(0,0,0,0,0)
+fake_shape.trace()
