@@ -29,34 +29,62 @@ class Triangulated(Shape):
         self.p += v
     def trace(self):
         # go through sources
-        n=1
-        numrays = 9
-        x = np.repeat(np.arange(3),3)
-        y = np.tile(np.arange(3),3)
-        z = np.zeros(9)
-        p = np.column_stack((x,y,z))
-        x = np.zeros(9)
-        y = np.zeros(9)
-        z = np.ones(9)
-        up = np.column_stack((x,y,z))
+        
+        
         rays = Rays(numrays,p,up,n)
         cob = change_of_basis(rays.up)
         rays_cob = (cob*rays.p[:,np.newaxis,:]).sum(axis=2)
         
-        
+class Scene:
+    def __init__(self):
+        self.sources = []
+    def trace(self):
+        for s in self.sources:
+            self.rays = Rays(s.numrays,s.p,s.up,s.n)
+    def add_source(self):
+        self.sources.append(Source())
+
+class Source:
+    def __init__(self):
+        # placeholder values for now
+        self.numrays = 9
+        x = np.repeat(np.arange(3),3)
+        y = np.tile(np.arange(3),3)
+        z = np.zeros(9)
+        self.p = np.column_stack((x,y,z))
+        x = np.zeros(9)
+        y = np.zeros(9)
+        z = np.ones(9)
+        self.up = np.column_stack((x,y,z))
+        self.n=1
 
 class Rays:
-    def __init__(self,numrays,p,up,n):
-        self.numrays = numrays # number of rays generated
-        self.p = p
-        self.up = up
-        self.pacc = np.copy(self.p) # accumulated p
-        self.upacc = np.copy(self.up) # accumulated up
-        self.dacc = np.zeros(numrays)# accumulated d
-        self.origin = np.arange(numrays) # index of ray origin in dacc (mutable)
-        self.n = np.repeat(n,numrays) # refractive index for current medium
-        self.inside = np.repeat(False,numrays) # within shape boolean (switches upon intersection)
-        self.wavelength = np.repeat('visible',numrays) # visible or infrared - modify later to nm
+    def __init__(self):
+        self.numrays = 0 # number of rays generated
+        self.p = np.array([])
+        self.up = np.array([])
+        self.pacc = np.array([]) # accumulated p
+        self.upacc = np.array([]) # accumulated up
+        self.dacc = np.array([]) # accumulated d
+        self.origin = np.array([]) # index of ray origin in dacc (mutable)
+        self.n = np.array([]) # refractive index for current medium
+        self.inside = np.array([]) # within shape boolean (switches upon intersection)
+        self.wavelength = np.array([]) # visible or infrared - modify later to nm
+    def append(self,numrays,p,up,n,wavelength='visible'):
+        self.numrays += numrays
+        self.p = np.concatenate((self.p,p))
+        self.up = np.concatenate((self.up,up))
+        self.pacc = np.concatenate((self.pacc,p))
+        self.upacc = np.concatenate((self.upacc,up))
+        self.dacc = np.concatenate((self.dacc,np.zeros(numrays)))
+        if self.origin.size:
+            start = np.max(self.origin)+1
+        else:
+            start = 0
+        self.origin = np.concatenate(self.origin,np.arange(start,start+numrays))
+        self.n = np.concatenate((self.n,np.repeat(n,numrays)))
+        self.inside = np.concatenate((self.inside,np.repeat(False,numrays)))
+        self.wavelength = np.concatenate((self.wavelength,np.repeat(wavelength,numrays)))
         
 class aspheric:
     def __init__(self,R,k,a4,a6,d):
@@ -184,7 +212,7 @@ def trace():
                 rays.dacc = np.append(rays.dacc,0)
                 rays.dacc[rays.origin[ray]] = shortest_distance
                 rays.origin[ray] = len(rays.dacc)-1
-    extend_rays()
+    # extend_rays()
 
     
 def find_change_of_basis_matrix(v):
