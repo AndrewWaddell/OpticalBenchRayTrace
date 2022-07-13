@@ -15,7 +15,7 @@ class Scene:
         self.shapes = []
     def trace(self):
         for s in self.sources:
-            self.rays = Rays(s.numrays,s.p,s.up,s.n)
+            self.rays.append(s.numrays,s.p,s.up,s.n)
         for s in self.shapes:
             s.trace(self)
     def add_source(self):
@@ -85,19 +85,21 @@ class Rays:
         self.wavelength = np.array([]) # visible or infrared - modify later to nm
     def append(self,numrays,p,up,n,wavelength='visible'):
         self.numrays += numrays
-        self.p = np.concatenate((self.p,p))
-        self.up = np.concatenate((self.up,up))
-        self.pacc = np.concatenate((self.pacc,p))
-        self.upacc = np.concatenate((self.upacc,up))
-        self.dacc = np.concatenate((self.dacc,np.zeros(numrays)))
-        if self.origin.size:
-            start = np.max(self.origin)+1
-        else:
-            start = 0
-        self.origin = np.concatenate(self.origin,np.arange(start,start+numrays))
-        self.n = np.concatenate((self.n,np.repeat(n,numrays)))
-        self.inside = np.concatenate((self.inside,np.repeat(False,numrays)))
-        self.wavelength = np.concatenate((self.wavelength,np.repeat(wavelength,numrays)))
+        self.p = np.concatenate((self.p,p)) if self.p.size else p
+        self.up = np.concatenate((self.up,up)) if self.up.size else up
+        self.pacc = np.concatenate((self.pacc,p)) if self.pacc.size else p
+        self.upacc = np.concatenate((self.upacc,up)) if self.upacc.size else up
+        dacc = np.zeros(numrays)
+        self.dacc = np.concatenate((self.dacc,dacc)) if self.dacc.size else dacc
+        start = np.max(self.origin)+1 if self.origin.size else 0
+        origin = np.arange(start,start+numrays)
+        self.origin = np.concatenate(self.origin,origin) if self.origin.size else origin
+        n = np.repeat(n,numrays)
+        self.n = np.concatenate((self.n,n)) if self.n.size else n
+        inside = np.repeat(False,numrays)
+        self.inside = np.concatenate((self.inside,inside)) if self.inside.size else inside
+        wavelength = np.repeat(wavelength,numrays)
+        self.wavelength = np.concatenate((self.wavelength,wavelength)) if self.wavelength.size else wavelength
         
 class aspheric:
     def __init__(self,R,k,a4,a6,d):
@@ -330,4 +332,14 @@ def snells_law(line,plane,n1,n2,inshape):
 # def plotrays():
 #     upd = np.multiply(np.transpose(rays.upacc),rays.dacc)
 #     plot3d.quiver(x,y,z,upd[0],upd[1],upd[2])
+
+
+
+test_bench = Scene()
+test_bench.add_source()
+test_bench.add_shape()
+test_bench.trace()
+
+
+
 
