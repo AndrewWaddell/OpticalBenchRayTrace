@@ -55,7 +55,11 @@ class Triangulated(Shape):
     def trace(self,scene):
         # go through sources
         cob = change_of_basis(scene.rays.up)
-        rays_cob = (cob*scene.rays.p[:,np.newaxis,:]).sum(axis=2)
+        rays_cob = np.einsum('hij,hj->hi',cob,scene.rays.p)
+        cobrep = np.repeat(cob[:,np.newaxis,:,:],self.p.shape[0],axis=1)
+        prep = np.repeat(self.p[np.newaxis,:,:],scene.rays.numrays,axis=0)
+        shape_cob = np.einsum('ghij,ghj->ghi',cobrep,prep)
+        
 
 class Source:
     def __init__(self):
@@ -74,8 +78,8 @@ class Source:
 class Rays:
     def __init__(self):
         self.numrays = 0 # number of rays generated
-        self.p = np.array([])
-        self.up = np.array([])
+        self.p = np.array([]) # coordinate vectors
+        self.up = np.array([]) # unit vectors
         self.pacc = np.array([]) # accumulated p
         self.upacc = np.array([]) # accumulated up
         self.dacc = np.array([]) # accumulated d
