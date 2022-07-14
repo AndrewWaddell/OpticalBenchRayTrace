@@ -55,10 +55,10 @@ class Triangulated(Shape):
     def trace(self,scene):
         # go through sources
         cob = change_of_basis(scene.rays.up)
-        rays_cob = np.einsum('hij,hj->hi',cob,scene.rays.p)
-        cobrep = np.repeat(cob[:,np.newaxis,:,:],self.p.shape[0],axis=1)
-        prep = np.repeat(self.p[np.newaxis,:,:],scene.rays.numrays,axis=0)
-        shape_cob = np.einsum('ghij,ghj->ghi',cobrep,prep)
+        rays_cob = np.einsum('hij,hj->hi',cob,scene.rays.p) # perform change of basis to rays
+        cobrep = np.repeat(cob[:,np.newaxis,:,:],self.p.shape[0],axis=1)  # broadcast in advance
+        prep = np.repeat(self.p[np.newaxis,:,:],scene.rays.numrays,axis=0) # broadcast in advance
+        shape_cob = np.einsum('ghij,ghj->ghi',cobrep,prep) # perform change of basis to shape
         
 
 class Source:
@@ -213,7 +213,7 @@ def trace():
                 s_cob[:,i] = np.matmul(cob,point)
             shortest_distance = np.inf
             for triangle in shape.cm:
-                if triangle_interior(ray_cob[:2],
+                if triangle_interior_single_point(ray_cob[:2],
                                      s_cob[:2,triangle[0]],
                                      s_cob[:2,triangle[1]],
                                      s_cob[:2,triangle[2]]):
@@ -288,7 +288,7 @@ def projection_operator(u,v):
     return proj_u_v
 
 
-def triangle_interior(query,p1,p2,p3):
+def triangle_interior_single_point(query,p1,p2,p3):
     v1 = p2-p1
     v2 = p3-p1
     if all(p1 == p2) or all(p1 == p3) or all(p1 == p3): # if parallel to the triangle
@@ -298,6 +298,16 @@ def triangle_interior(query,p1,p2,p3):
     if a_>0:
         if b_>0:
             return(a_+b_<1)
+        
+def triange_interior(query,p1,p2,p3):
+    ''' Tests whether the query point fits within the triangle created by
+    points p1, p2 and p3. However, this function operates on multiple
+    triangles at once, and multiple rays at once. Luckily, the input
+    arrays have been reduced to a single list of rays and triangles.
+    This means the input shape for each argument is testcase*3dims.
+    For example, 2 triangles and 4 rays will give us shape = 8*3'''
+    v1 = p2-p1
+    v2 = p3-p1
         
 def plane_from_points(points):
     # grab normal vector only
