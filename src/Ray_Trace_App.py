@@ -268,12 +268,31 @@ def change_of_basis(v):
     matrix consisting of each vector nested within it. v is shape
     (numrays,3)'''
     numrays = v.shape[0]
-    orth1 = GramSmchidt(v)
+    orth1rand = GramSmchidt(v)
+    orth1 = rotate_3d_vector_90(v)
     orth2 = np.cross(orth1,v)
     P = np.concatenate((orth1,orth2,v),axis=1).reshape(numrays,3,3).transpose(0,2,1)
     Pnorm = np.divide(P,np.tile(np.linalg.norm(P,axis=1),3).reshape(numrays,3,3))
     Pinv = np.linalg.inv(Pnorm)
     return Pinv
+
+def rotate_3d_vector_90(v):
+    '''Creates 3 rotation matrices evaluated at theta = pi/2.
+    Rotates the input vector by 90deg over each axis, one at
+    a time to give an orthogonal vector in R3'''
+    # Create rotation matrices
+    Rx = np.array([[1,0,0],[0,0,-1],[0,1,0]])
+    Ry = np.array([[0,0,1],[0,1,0],[-1,0,0]])
+    Rz = np.array([[0,-1,0],[1,0,0],[0,0,1]])
+    # Broadcast matrices to accommodate several input vectors
+    Rxr = np.repeat(Rx[np.newaxis,:,:],v.shape[0],axis=0)
+    Ryr = np.repeat(Ry[np.newaxis,:,:],v.shape[0],axis=0)
+    Rzr = np.repeat(Rz[np.newaxis,:,:],v.shape[0],axis=0)
+    # Rotate vectors by matrix multiplication
+    v_rx = np.einsum('ijk,ik->ij',Rxr,v)
+    v_rx_ry = np.einsum('ijk,ik->ij',Ryr,v_rx)
+    v_rx_ry_rz = np.einsum('ijk,ik->ij',Rzr,v_rx_ry)
+    return v_rx_ry_rz
 
 def GramSmchidt(u1):
     '''produces one new vector u2 that is orthogonal to vector u1.
