@@ -59,6 +59,16 @@ class Triangulated(Shape):
         cobrep = np.repeat(cob[:,np.newaxis,:,:],self.p.shape[0],axis=1)  # broadcast in advance
         prep = np.repeat(self.p[np.newaxis,:,:],scene.rays.numrays,axis=0) # broadcast in advance
         shape_cob = np.einsum('ghij,ghj->ghi',cobrep,prep) # perform change of basis to shape
+        # shape_cob format: [rays:points:dimensions=3]
+        # shape for the following triangle points (before reshaping): [rays:triangles:dims=2]
+        p1 = shape_cob[:,self.cm[:,0],:2] 
+        p2 = shape_cob[:,self.cm[:,1],:2]
+        p3 = shape_cob[:,self.cm[:,2],:2]
+        p1r = p1.reshape(p1.shape[0]*p1.shape[1],2)
+        p2r = p2.reshape(p2.shape[0]*p2.shape[1],2)
+        p3r = p3.reshape(p3.shape[0]*p3.shape[1],2)
+        rays_cob_rep = np.repeat(rays_cob[:,:2],self.cm.shape[0],axis=0) # broadcast rays over triangles
+        interior = triange_interior(rays_cob_rep,p1r,p2r,p3r).reshape(scene.rays.numrays,self.cm.shape[0])
         
 
 class Source:
@@ -305,9 +315,20 @@ def triange_interior(query,p1,p2,p3):
     triangles at once, and multiple rays at once. Luckily, the input
     arrays have been reduced to a single list of rays and triangles.
     This means the input shape for each argument is testcase*3dims.
-    For example, 2 triangles and 4 rays will give us shape = 8*3'''
-    v1 = p2-p1
-    v2 = p3-p1
+    For example, 2 triangles and 4 rays will give us shape = 8*3
+    
+    Algorithm checks the number of points in the convex hull. If 4,
+    point is outside triangle, if 3 then point is inside.'''
+    # Solve query = p1 + a*(p2-p1) + b*(p3-p1)
+    # query - p1 = [p2:p3]-p1 * [a_b]
+    M = np.concatenate((p2[:,np.newaxis,:],p3[:,np.newaxis,:]),axis=1) # M = p2:p3
+    p1r = np.repeat(p1,2,axis=0).reshape(p1.shape[0],2,2) # broadcast p1 into M
+    a_b = np.linalg.solve(M-p1r,query-p1)
+    
+    a_and_b_gt_0 = np.all(np.greater(a_b,np.zeros((a_b.shape[0],2))),axis=1)
+    a_plus_b_lt_1 = np.greater(np.ones(18),np.sum(a_b,axis=1))
+    return np.bitwise_and(a_and_b_gt_0,a_plus_b_lt_1)
+    
         
 def plane_from_points(points):
     # grab normal vector only
