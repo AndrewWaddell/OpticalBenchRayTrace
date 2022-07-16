@@ -180,24 +180,6 @@ def create_octahedron(shape):
     cm = np.asarray(cm)
     return p, cm    
 
-
-# Kept this function for understanding of how to index points
-# def plotshapes():
-#     global shapes
-#     for shape in shapes:
-#         '''lines'''
-#         # decided not to show shape points
-#         for triangle in shape.cm:
-#             X = [shape.p[triangle[2]][0]]
-#             Y = [shape.p[triangle[2]][1]]
-#             Z = [shape.p[triangle[2]][2]]
-#             for point in triangle:
-#                 [x,y,z] = shape.p[point]
-#                 X.append(x)
-#                 Y.append(y)
-#                 Z.append(z)
-#             plot3d.plot(X,Y,Z)
-
 def createshape():
     global shapes
     shapes = [] # list of shape objects
