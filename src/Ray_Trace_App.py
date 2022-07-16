@@ -74,6 +74,8 @@ class Triangulated(Shape):
         p3r = p3.reshape(p3.shape[0]*p3.shape[1],2)
         rays_cob_rep = np.repeat(rays_cob[:,:2],self.cm.shape[0],axis=0) # broadcast rays over triangles
         interior = triange_interior(rays_cob_rep,p1r,p2r,p3r).reshape(scene.rays.numrays,self.cm.shape[0])
+        cmrep = np.repeat(self.cm[np.newaxis,:,:],scene.rays.numrays,axis=0)
+        normals = plane_from_points(self.p[cmrep[interior]])
         
         
 
@@ -338,8 +340,12 @@ def triange_interior(query,p1,p2,p3):
 def plane_from_points(p):
     '''Finds the normal vector orthogonal to the plane described by 3 points
     in a triangle. Function works for n triangles, Input points p are shape:
-    n*3dims'''
-    
+    n*3dims
+    Note, we don't need to normalise the normals because distance line-plane
+    equation will work anyway'''
+    v1 = p[:,2] - p[:,0]
+    v2 = p[:,1] - p[:,0]
+    return(np.cross(v1,v2))
         
 def plane_from_points_single_ray(points):
     # grab normal vector only
