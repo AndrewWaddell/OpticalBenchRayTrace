@@ -52,8 +52,13 @@ class Triangulated(Shape):
     def translate(self,v):
         '''move shape in direction and distance of v'''
         self.p += v
+    def scale(self,k,v):
+        '''Scale shape by scaling factors k outwards from location v. inputs are numpy arrays
+        If uniform scaling, use k = [1,1,1]'''
+        self.p += v
+        self.p *= k
+        self.p -= v
     def trace(self,scene):
-        # go through sources
         cob = change_of_basis(scene.rays.up)
         rays_cob = np.einsum('hij,hj->hi',cob,scene.rays.p) # perform change of basis to rays
         cobrep = np.repeat(cob[:,np.newaxis,:,:],self.p.shape[0],axis=1)  # broadcast in advance
@@ -69,6 +74,7 @@ class Triangulated(Shape):
         p3r = p3.reshape(p3.shape[0]*p3.shape[1],2)
         rays_cob_rep = np.repeat(rays_cob[:,:2],self.cm.shape[0],axis=0) # broadcast rays over triangles
         interior = triange_interior(rays_cob_rep,p1r,p2r,p3r).reshape(scene.rays.numrays,self.cm.shape[0])
+        
         
 
 class Source:
@@ -209,7 +215,7 @@ def trace():
                                      s_cob[:2,triangle[0]],
                                      s_cob[:2,triangle[1]],
                                      s_cob[:2,triangle[2]]):
-                    normal = plane_from_points(shape.p[triangle])
+                    normal = plane_from_points_single_ray(shape.p[triangle])
                     d = distance_line_plane(rays.p[ray,:],rays.up[ray,:],normal,shape.p[triangle[0]])
                     if d < shortest_distance:
                         POI = rays.p[ray,:]+d*rays.up[ray,:]
@@ -250,7 +256,6 @@ def change_of_basis(v):
     matrix consisting of each vector nested within it. v is shape
     (numrays,3)'''
     numrays = v.shape[0]
-    orth1rand = GramSmchidt(v)
     orth1 = rotate_3d_vector_90(v)
     orth2 = np.cross(orth1,v)
     P = np.concatenate((orth1,orth2,v),axis=1).reshape(numrays,3,3).transpose(0,2,1)
@@ -325,13 +330,18 @@ def triange_interior(query,p1,p2,p3):
     M = np.concatenate((p2[:,np.newaxis,:],p3[:,np.newaxis,:]),axis=1) # M = p2:p3
     p1r = np.repeat(p1,2,axis=0).reshape(p1.shape[0],2,2) # broadcast p1 into M
     a_b = np.linalg.solve(M-p1r,query-p1)
-    
     a_and_b_gt_0 = np.all(np.greater(a_b,np.zeros((a_b.shape[0],2))),axis=1)
     a_plus_b_lt_1 = np.greater(np.ones(18),np.sum(a_b,axis=1))
     return np.bitwise_and(a_and_b_gt_0,a_plus_b_lt_1)
+
+
+def plane_from_points(p):
+    '''Finds the normal vector orthogonal to the plane described by 3 points
+    in a triangle. Function works for n triangles, Input points p are shape:
+    n*3dims'''
     
         
-def plane_from_points(points):
+def plane_from_points_single_ray(points):
     # grab normal vector only
     v1 = points[2]-points[0]
     v2 = points[1]-points[0]
