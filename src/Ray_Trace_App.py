@@ -75,9 +75,14 @@ class Triangulated(Shape):
         rays_cob_rep = np.repeat(rays_cob[:,:2],self.cm.shape[0],axis=0) # broadcast rays over triangles
         interior = triange_interior(rays_cob_rep,p1r,p2r,p3r).reshape(scene.rays.numrays,self.cm.shape[0])
         cmrep = np.repeat(self.cm[np.newaxis,:,:],scene.rays.numrays,axis=0)
-        normals = plane_from_points(self.p[cmrep[interior]])
-        
-        
+        triangle_points = self.p[cmrep[interior]]
+        d = np.inf*np.ones(interior.shape)
+        d[interior.nonzero()] = distance_line_plane(scene.rays.p[interior.nonzero()[0]],
+                            scene.rays.up[interior.nonzero()[0]],
+                            plane_from_points(triangle_points),
+                            triangle_points[:,0])
+        # indeces_of_interior = np.repeat(np.arange(self.cm.shape[0])[np.newaxis,:],interior.shape[0],axis=0)
+        min_distances = np.min(d,axis=1)
 
 class Source:
     def __init__(self):
@@ -218,7 +223,7 @@ def trace():
                                      s_cob[:2,triangle[1]],
                                      s_cob[:2,triangle[2]]):
                     normal = plane_from_points_single_ray(shape.p[triangle])
-                    d = distance_line_plane(rays.p[ray,:],rays.up[ray,:],normal,shape.p[triangle[0]])
+                    d = distance_line_plane_single_ray(rays.p[ray,:],rays.up[ray,:],normal,shape.p[triangle[0]])
                     if d < shortest_distance:
                         POI = rays.p[ray,:]+d*rays.up[ray,:]
                         shortest_distance = d
@@ -346,14 +351,34 @@ def plane_from_points(p):
     v1 = p[:,2] - p[:,0]
     v2 = p[:,1] - p[:,0]
     return(np.cross(v1,v2))
-        
+
+def distance_line_plane(l0,l,n,p0):
+    '''For the set of points (p) on a line described by p = l0 + l*d, where:
+    l0 is a point on the line,
+    l is a unit vector in the direction of the line,
+    d is a scalar;
+    and for the set of points (p) on a plane described by
+    dot( (p - p0) , n ) = 0, where:
+    n is a normal vector to the plane,
+    p0 is a point on the plane;
+    substituting p line into p plane, and re-arranging to solve for d
+    will give us the distance from l0 to the plane, since l is normalised.
+    
+    Function works for multiple line,plane pairs, which are orded in the
+    first dimension of the input array.
+    '''
+    numerator = np.einsum('ij,ij->i',p0-l0,n) # dot product
+    denominator = np.einsum('ij,ij->i',l,n) # dot product
+    d = np.divide(numerator,denominator)
+    return d
+
 def plane_from_points_single_ray(points):
     # grab normal vector only
     v1 = points[2]-points[0]
     v2 = points[1]-points[0]
     return(np.cross(v1,v2))
 
-def distance_line_plane(location,direction,n,ref):
+def distance_line_plane_single_ray(location,direction,n,ref):
     # loc vector and dir vector describe line
     # normal vector and reference point describe plane
     return np.dot(ref-location,-n)/np.dot(direction,-n)
