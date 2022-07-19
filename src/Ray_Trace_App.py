@@ -88,8 +88,8 @@ class Triangulated(Shape):
         if self.mirror:
             scene.rays.up[i] = reflect(scene.rays.up[i],normals)
         else:
+            scene.rays.up[i] = refract(scene.rays.inside[i],scene.n,self.n,scene.rays.up[i],normals)
             scene.rays.inside[i] = np.logical_not(scene.rays.inside[i])
-            scene.rays.up[i] = snells_law(scene.rays.inside[i],scene.rays.n[i],self.n,scene.rays.up[i],normals)
         scene.rays.pacc = np.concatenate((scene.rays.pacc,scene.rays.p[i]),axis=0)
         scene.rays.upacc = np.concatenate((scene.rays.upacc,scene.rays.up[i]),axis=0)
         scene.rays.dacc[i] = min_distances[i]
@@ -381,14 +381,43 @@ def distance_line_plane(l0,l,n,p0):
     d = np.divide(numerator,denominator)
     return d
 
-def snells_law(inside,n1,n2,line,plane):
+def refract(inside,n1,n2,line,plane):
     '''Implements Snell's law in vector form for multiple line-plane pairs.
     n1 is refractive index of the atmosphere of the scene,
     n2 is refractive index of the shape.
     Therefore we cannot have shape-shape intersections as of yet.
     Ray must enter shape from atmosphere, then exit back into atmosphere.
-    
+    However, some rays may be entering the shape while others are exiting
+    it, this is made possible because a mirror has an odd number of
+    intersections while glass has an even number.
+    If normal vector doesn't point towards direction of the incoming ray,
+    then cos(theta1) would be negative, so we negate n to fix this.
+    refracted ray is v.
     '''
+    
+    # test block begin
+    
+    inside = np.array([False,False,False,False])
+    n1=0.9
+    n2=1
+    line = np.concatenate((line,[1/np.sqrt([2,2,1])]))
+    line[3,1] *= -1
+    line[3,2]=0
+    plane = np.concatenate((plane,[[0,1,0]]))
+    
+    # test block end
+    
+    
+    r = np.zeros(inside.shape) # refractive index ratio for each ray
+    r[inside] = n2/n1 # for rays that are exiting
+    r[np.logical_not(inside)] = n1/n2 # for rays that are entering
+    cos_theta1 = np.einsum('ij,ij->i',-plane,line) # dot product
+    plane[cos_theta1<0] *= -1
+    c1 = np.einsum('ij,ij->i',-plane,line) # repeat with correct normals
+    c2 = np.sqrt(1-np.multiply(np.square(r),1-np.square(c1))) # cos(theta2)
+    rc1mc2 = np.multiply(r,c1) - c2 # r*cos(theta1) minus cos(theta2)
+    rl = np.multiply(np.repeat(r[:,np.newaxis],3,axis=1),line)
+    v = rl + np.multiply(np.repeat(rc1mc2[:,np.newaxis],3,axis=1),plane)
     pass
 
 def reflect(line,plane): # mirror
