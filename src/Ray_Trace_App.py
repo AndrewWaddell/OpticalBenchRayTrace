@@ -32,7 +32,7 @@ class Scene:
                       [3,-1,4]])
         cm = np.array([[0,2,3],
                       [1,2,3]])
-        self.shapes.append(Triangulated(loc,direc,n,p,cm,False,'Testglass'))
+        self.shapes.append(Triangulated(loc,direc,n,p,cm,True,'Testglass'))
 
 class Shape:
     def __init__(self,location,direction,n,mirror,name):
@@ -94,8 +94,6 @@ class Triangulated(Shape):
         scene.rays.upacc = np.concatenate((scene.rays.upacc,scene.rays.up[i]),axis=0)
         scene.rays.dacc[i] = min_distances[i]
         scene.rays.dacc = np.concatenate((scene.rays.dacc,np.zeros(i.shape)),axis=0)
-        
-        
 
 class Source:
     def __init__(self):
@@ -390,38 +388,36 @@ def refract(inside,n1,n2,line,plane):
     However, some rays may be entering the shape while others are exiting
     it, this is made possible because a mirror has an odd number of
     intersections while glass has an even number.
-    If normal vector doesn't point towards direction of the incoming ray,
-    then cos(theta1) would be negative, so we negate n to fix this.
-    refracted ray is v.
-    '''
-    
-    # test block begin
-    
-    inside = np.array([False,False,False,False])
-    n1=0.9
-    n2=1
-    line = np.concatenate((line,[1/np.sqrt([2,2,1])]))
-    line[3,1] *= -1
-    line[3,2]=0
-    plane = np.concatenate((plane,[[0,1,0]]))
-    
-    # test block end
-    
-    
+    Refracted ray is v.
+    '''  
     r = np.zeros(inside.shape) # refractive index ratio for each ray
     r[inside] = n2/n1 # for rays that are exiting
     r[np.logical_not(inside)] = n1/n2 # for rays that are entering
-    cos_theta1 = np.einsum('ij,ij->i',-plane,line) # dot product
-    plane[cos_theta1<0] *= -1
-    c1 = np.einsum('ij,ij->i',-plane,line) # repeat with correct normals
+    c1,plane = cos_theta1(plane,line) # note: updates normal vectors
     c2 = np.sqrt(1-np.multiply(np.square(r),1-np.square(c1))) # cos(theta2)
     rc1mc2 = np.multiply(r,c1) - c2 # r*cos(theta1) minus cos(theta2)
     rl = np.multiply(np.repeat(r[:,np.newaxis],3,axis=1),line)
     v = rl + np.multiply(np.repeat(rc1mc2[:,np.newaxis],3,axis=1),plane)
-    pass
+    return v
 
 def reflect(line,plane): # mirror
-    pass
+    ''' Implements Snell's law for multiple line plane pairs.
+    If normal vector doesn't point towards direction of the incoming ray,
+    then cos(theta1) would be negative, so we negate n to fix this.
+    '''
+    c1,plane = cos_theta1(plane,line)
+    return line + 2*np.multiply(np.repeat([c1],3,axis=1).reshape(c1.shape[0],3),plane)
+    
+
+def cos_theta1(plane,line):
+    '''If normal vector doesn't point towards direction of the incoming ray,
+    then cos(theta1) would be negative, so we negate n to fix this.
+    Implemented within a Snells Law function'''
+    plane = np.divide(plane,np.linalg.norm(plane,axis=1)) # normalise vectors
+    c1_with_negs = np.einsum('ij,ij->i',-plane,line) # dot product
+    plane[c1_with_negs<0] *= -1
+    c1 = np.einsum('ij,ij->i',-plane,line) # repeat with correct normals
+    return c1,plane
 
 def plane_from_points_single_ray(points):
     # grab normal vector only
@@ -467,7 +463,6 @@ test_bench = Scene()
 test_bench.add_source()
 test_bench.add_shape()
 test_bench.trace()
-
 
 
 
