@@ -77,12 +77,18 @@ class Triangulated(Shape):
         cmrep = np.repeat(self.cm[np.newaxis,:,:],scene.rays.numrays,axis=0)
         triangle_points = self.p[cmrep[interior]]
         d = np.inf*np.ones(interior.shape)
-        d[interior.nonzero()] = distance_line_plane(scene.rays.p[interior.nonzero()[0]],
-                            scene.rays.up[interior.nonzero()[0]],
-                            plane_from_points(triangle_points),
-                            triangle_points[:,0])
-        # indeces_of_interior = np.repeat(np.arange(self.cm.shape[0])[np.newaxis,:],interior.shape[0],axis=0)
+        i = interior.nonzero() # numerical index of intersecting rays
+        normals = plane_from_points(triangle_points)
+        d[i] = distance_line_plane(scene.rays.p[i[0]],
+                            scene.rays.up[i[0]],normals,triangle_points[:,0])
         min_distances = np.min(d,axis=1)
+        scene.rays.p[i[0]] = scene.rays.p[i[0]] + min_distances[i[0]] * scene.rays.up[i[0]]
+        # scene.rays.up[i[0]] = snells_law()
+        scene.rays.pacc = np.concatenate((scene.rays.pacc,scene.rays.p[i[0]]),axis=0)
+        scene.rays.upacc = np.concatenate((scene.rays.upacc,scene.rays.up[i[0]]),axis=0)
+        scene.rays.dacc[i[0]] = min_distances[i[0]]
+        scene.rays.dacc = np.concatenate((scene.rays.dacc,np.zeros(i[0].shape)),axis=0)
+        
 
 class Source:
     def __init__(self):
@@ -112,17 +118,17 @@ class Rays:
         self.wavelength = np.array([]) # visible or infrared - modify later to nm
     def append(self,numrays,p,up,n,wavelength='visible'):
         self.numrays += numrays
-        self.p = np.concatenate((self.p,p)) if self.p.size else p
-        self.up = np.concatenate((self.up,up)) if self.up.size else up
-        self.pacc = np.concatenate((self.pacc,p)) if self.pacc.size else p
-        self.upacc = np.concatenate((self.upacc,up)) if self.upacc.size else up
+        self.p = np.concatenate((self.p,p)) if self.p.size else np.copy(p)
+        self.up = np.concatenate((self.up,up)) if self.up.size else np.copy(up)
+        self.pacc = np.concatenate((self.pacc,p)) if self.pacc.size else np.copy(p)
+        self.upacc = np.concatenate((self.upacc,up)) if self.upacc.size else np.copy(up)
         dacc = np.zeros(numrays)
         self.dacc = np.concatenate((self.dacc,dacc)) if self.dacc.size else dacc
         start = np.max(self.origin)+1 if self.origin.size else 0
         origin = np.arange(start,start+numrays)
         self.origin = np.concatenate(self.origin,origin) if self.origin.size else origin
         n = np.repeat(n,numrays)
-        self.n = np.concatenate((self.n,n)) if self.n.size else n
+        self.n = np.concatenate((self.n,n)) if self.n.size else np.copy(n)
         inside = np.repeat(False,numrays)
         self.inside = np.concatenate((self.inside,inside)) if self.inside.size else inside
         wavelength = np.repeat(wavelength,numrays)
