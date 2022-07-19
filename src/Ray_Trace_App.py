@@ -210,59 +210,6 @@ def createshape():
     lens1.connectivity_matrix()
     shapes.append(Shape(points,np.array(lens1.cm),1.52))
 
-def trace():
-    global numrays_slider_var
-    global shapes,rays
-    
-    '''Trace'''
-    
-    for ray in range(rays.num):
-        cob = find_change_of_basis_matrix(rays.up[ray,:])
-        ray_cob = np.matmul(cob,rays.p[ray,:])
-        for shape in shapes:
-            s_cob = np.zeros((3,len(shape.p))) # note change in dim order
-            for i,point in enumerate(shape.p):
-                s_cob[:,i] = np.matmul(cob,point)
-            shortest_distance = np.inf
-            for triangle in shape.cm:
-                if triangle_interior_single_point(ray_cob[:2],
-                                     s_cob[:2,triangle[0]],
-                                     s_cob[:2,triangle[1]],
-                                     s_cob[:2,triangle[2]]):
-                    normal = plane_from_points_single_ray(shape.p[triangle])
-                    d = distance_line_plane_single_ray(rays.p[ray,:],rays.up[ray,:],normal,shape.p[triangle[0]])
-                    if d < shortest_distance:
-                        POI = rays.p[ray,:]+d*rays.up[ray,:]
-                        shortest_distance = d
-                        closest_plane = normal
-            if shortest_distance < np.inf:
-                rays.p[ray,:] = POI
-                rays.up[ray,:] = snells_law_single_ray(rays.up[ray,:],closest_plane,rays.n[ray],shape.n,rays.inshape[ray])
-                rays.pacc = np.row_stack((rays.pacc,rays.p[ray,:]))
-                rays.upacc = np.row_stack((rays.upacc,rays.up[ray,:]))
-                rays.dacc = np.append(rays.dacc,0)
-                rays.dacc[rays.origin[ray]] = shortest_distance
-                rays.origin[ray] = len(rays.dacc)-1
-    # extend_rays()
-
-    
-def find_change_of_basis_matrix(v):
-    # rearrange dot product formula
-    orth1 = np.zeros((3,1))
-    orth2 = np.zeros((3,1))
-    dim = 0
-    while v[(dim+2)%3] == 0:
-        dim += 1 # choice of dimension such that we don't divide by 0 in dot product formula
-    orth1[(dim+0)%3] = 1
-    orth1[(dim+1)%3] = 2
-    orth1[(dim+2)%3] = -(orth1[(dim+0)%3]*v[(dim+0)%3]+orth1[(dim+1)%3]*v[(dim+1)%3])/v[(dim+2)%3]
-    orth2[(dim+0)%3] = 1
-    orth2[(dim+1)%3] = -2
-    orth2[(dim+2)%3] = -(orth2[(dim+0)%3]*v[(dim+0)%3]+orth2[(dim+1)%3]*v[(dim+1)%3])/v[(dim+2)%3]
-    P = np.concatenate((orth1,orth2,v[:].reshape(3,1)),axis=1)
-    Pinv = np.linalg.inv(P)
-    return Pinv
-
 def change_of_basis(v):
     '''computes a non-unique change of basis matrix for a vector in R3.
     The 3rd dimension of the basis set is along the direction of v.
@@ -317,18 +264,6 @@ def projection_operator(u,v):
     proj_u_v = np.multiply(u,np.repeat(scalar,3).reshape(numrays,3))
     return proj_u_v
 
-
-def triangle_interior_single_point(query,p1,p2,p3):
-    v1 = p2-p1
-    v2 = p3-p1
-    if all(p1 == p2) or all(p1 == p3) or all(p1 == p3): # if parallel to the triangle
-        return 0
-    a_ = (np.cross(query,v2)-np.cross(p1,v2))/np.cross(v1,v2)
-    b_ = -(np.cross(query,v1)-np.cross(p1,v1))/np.cross(v1,v2)
-    if a_>0:
-        if b_>0:
-            return(a_+b_<1)
-        
 def triange_interior(query,p1,p2,p3):
     ''' Tests whether the query point fits within the triangle created by
     points p1, p2 and p3. However, this function operates on multiple
@@ -338,7 +273,11 @@ def triange_interior(query,p1,p2,p3):
     For example, 2 triangles and 4 rays will give us shape = 8*3
     
     Algorithm checks the number of points in the convex hull. If 4,
-    point is outside triangle, if 3 then point is inside.'''
+    point is outside triangle, if 3 then point is inside.
+    
+    
+    
+    Does it deal with case of being parallel to triange?'''
     # Solve query = p1 + a*(p2-p1) + b*(p3-p1)
     # query - p1 = [p2:p3]-p1 * [a_b]
     M = np.concatenate((p2[:,np.newaxis,:],p3[:,np.newaxis,:]),axis=1) # M = p2:p3
@@ -347,7 +286,6 @@ def triange_interior(query,p1,p2,p3):
     a_and_b_gt_0 = np.all(np.greater(a_b,np.zeros((a_b.shape[0],2))),axis=1)
     a_plus_b_lt_1 = np.greater(np.ones(18),np.sum(a_b,axis=1))
     return np.bitwise_and(a_and_b_gt_0,a_plus_b_lt_1)
-
 
 def plane_from_points(p):
     '''Finds the normal vector orthogonal to the plane described by 3 points
@@ -407,7 +345,6 @@ def reflect(line,plane): # mirror
     '''
     c1,plane = cos_theta1(plane,line)
     return line + 2*np.multiply(np.repeat([c1],3,axis=1).reshape(c1.shape[0],3),plane)
-    
 
 def cos_theta1(plane,line):
     '''If normal vector doesn't point towards direction of the incoming ray,
@@ -418,44 +355,6 @@ def cos_theta1(plane,line):
     plane[c1_with_negs<0] *= -1
     c1 = np.einsum('ij,ij->i',-plane,line) # repeat with correct normals
     return c1,plane
-
-def plane_from_points_single_ray(points):
-    # grab normal vector only
-    v1 = points[2]-points[0]
-    v2 = points[1]-points[0]
-    return(np.cross(v1,v2))
-
-def distance_line_plane_single_ray(location,direction,n,ref):
-    # loc vector and dir vector describe line
-    # normal vector and reference point describe plane
-    return np.dot(ref-location,-n)/np.dot(direction,-n)
-
-def snells_law_single_ray(line,plane,n1,n2,inshape):
-    # line defined as direction vector
-    # plane defined by normal vector
-    # find new unit direction vector
-
-    if inshape:
-        r = n2/n1
-    else:
-        r = n1/n2
-    c = np.dot(plane,line)
-    if c<0:
-        c = np.dot(-plane,line)
-    v = r*line + (r*c-np.sqrt(1-r**2*(1-c**2)))*plane
-    normv = v/np.linalg.norm(v) # unit vector must be normalised
-    return normv
-
-# def extend_rays():
-#     global rays
-#     for i,d in enumerate(rays.dacc):
-#         if d==0:
-#             rays.dacc[i] = float(extend_rays_input.get())
-            
-# Kept function to remind of the default data structure for rays
-# def plotrays():
-#     upd = np.multiply(np.transpose(rays.upacc),rays.dacc)
-#     plot3d.quiver(x,y,z,upd[0],upd[1],upd[2])
 
 
 
