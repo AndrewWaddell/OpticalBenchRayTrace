@@ -13,9 +13,10 @@ class Scene:
         self.sources = []
         self.rays = Rays()
         self.shapes = []
+        self.n = 1 # refractive index of air
     def trace(self):
         for s in self.sources:
-            self.rays.append(s.numrays,s.p,s.up,s.n)
+            self.rays.append(s.numrays,s.p,s.up)
         for s in self.shapes:
             s.trace(self)
     def add_source(self):
@@ -31,19 +32,20 @@ class Scene:
                       [3,-1,4]])
         cm = np.array([[0,2,3],
                       [1,2,3]])
-        self.shapes.append(Triangulated(loc,direc,n,p,cm))
+        self.shapes.append(Triangulated(loc,direc,n,p,cm,False,'Testglass'))
 
 class Shape:
-    def __init__(self,location,direction,n,name=''):
+    def __init__(self,location,direction,n,mirror,name):
         self.name = name # shape label e.g. lens
         self.location = location # translation from source points
         self.direction = direction # new orientation of x axis vector
         self.n = n # refractive index of inner medium
+        self.mirror = mirror
 
 
 class Triangulated(Shape):
-    def __init__(self,location,direction,n,p,cm,name=''):
-        super().__init__(location,direction,n,name)
+    def __init__(self,location,direction,n,p,cm,mirror,name):
+        super().__init__(location,direction,n,mirror,name)
         self.p = p # All shape vertices in 3D (points)
         self.cm = cm # triangle connectivity matrix (sides)
     def rotate(self,axis_loc,axis_dir):
@@ -77,17 +79,22 @@ class Triangulated(Shape):
         cmrep = np.repeat(self.cm[np.newaxis,:,:],scene.rays.numrays,axis=0)
         triangle_points = self.p[cmrep[interior]]
         d = np.inf*np.ones(interior.shape)
-        i = interior.nonzero() # numerical index of intersecting rays
+        i = interior.nonzero()[0] # numerical index of intersecting rays
         normals = plane_from_points(triangle_points)
-        d[i] = distance_line_plane(scene.rays.p[i[0]],
-                            scene.rays.up[i[0]],normals,triangle_points[:,0])
+        d[interior.nonzero()] = distance_line_plane(scene.rays.p[i],
+                            scene.rays.up[i],normals,triangle_points[:,0])
         min_distances = np.min(d,axis=1)
-        scene.rays.p[i[0]] = scene.rays.p[i[0]] + min_distances[i[0]] * scene.rays.up[i[0]]
-        # scene.rays.up[i[0]] = snells_law()
-        scene.rays.pacc = np.concatenate((scene.rays.pacc,scene.rays.p[i[0]]),axis=0)
-        scene.rays.upacc = np.concatenate((scene.rays.upacc,scene.rays.up[i[0]]),axis=0)
-        scene.rays.dacc[i[0]] = min_distances[i[0]]
-        scene.rays.dacc = np.concatenate((scene.rays.dacc,np.zeros(i[0].shape)),axis=0)
+        scene.rays.p[i] = scene.rays.p[i] + min_distances[i] * scene.rays.up[i]
+        if self.mirror:
+            scene.rays.up[i] = reflect(scene.rays.up[i],normals)
+        else:
+            scene.rays.inside[i] = np.logical_not(scene.rays.inside[i])
+            scene.rays.up[i] = snells_law(scene.rays.inside[i],scene.rays.n[i],self.n,scene.rays.up[i],normals)
+        scene.rays.pacc = np.concatenate((scene.rays.pacc,scene.rays.p[i]),axis=0)
+        scene.rays.upacc = np.concatenate((scene.rays.upacc,scene.rays.up[i]),axis=0)
+        scene.rays.dacc[i] = min_distances[i]
+        scene.rays.dacc = np.concatenate((scene.rays.dacc,np.zeros(i.shape)),axis=0)
+        
         
 
 class Source:
@@ -102,7 +109,6 @@ class Source:
         y = np.zeros(9)
         z = np.ones(9)
         self.up = np.column_stack((x,y,z))
-        self.n=1
 
 class Rays:
     def __init__(self):
@@ -113,10 +119,9 @@ class Rays:
         self.upacc = np.array([]) # accumulated up
         self.dacc = np.array([]) # accumulated d
         self.origin = np.array([]) # index of ray origin in dacc (mutable)
-        self.n = np.array([]) # refractive index for current medium
         self.inside = np.array([]) # within shape boolean (switches upon intersection)
         self.wavelength = np.array([]) # visible or infrared - modify later to nm
-    def append(self,numrays,p,up,n,wavelength='visible'):
+    def append(self,numrays,p,up,wavelength='visible'):
         self.numrays += numrays
         self.p = np.concatenate((self.p,p)) if self.p.size else np.copy(p)
         self.up = np.concatenate((self.up,up)) if self.up.size else np.copy(up)
@@ -127,8 +132,6 @@ class Rays:
         start = np.max(self.origin)+1 if self.origin.size else 0
         origin = np.arange(start,start+numrays)
         self.origin = np.concatenate(self.origin,origin) if self.origin.size else origin
-        n = np.repeat(n,numrays)
-        self.n = np.concatenate((self.n,n)) if self.n.size else np.copy(n)
         inside = np.repeat(False,numrays)
         self.inside = np.concatenate((self.inside,inside)) if self.inside.size else inside
         wavelength = np.repeat(wavelength,numrays)
@@ -236,7 +239,7 @@ def trace():
                         closest_plane = normal
             if shortest_distance < np.inf:
                 rays.p[ray,:] = POI
-                rays.up[ray,:] = snells_law(rays.up[ray,:],closest_plane,rays.n[ray],shape.n,rays.inshape[ray])
+                rays.up[ray,:] = snells_law_single_ray(rays.up[ray,:],closest_plane,rays.n[ray],shape.n,rays.inshape[ray])
                 rays.pacc = np.row_stack((rays.pacc,rays.p[ray,:]))
                 rays.upacc = np.row_stack((rays.upacc,rays.up[ray,:]))
                 rays.dacc = np.append(rays.dacc,0)
@@ -378,6 +381,19 @@ def distance_line_plane(l0,l,n,p0):
     d = np.divide(numerator,denominator)
     return d
 
+def snells_law(inside,n1,n2,line,plane):
+    '''Implements Snell's law in vector form for multiple line-plane pairs.
+    n1 is refractive index of the atmosphere of the scene,
+    n2 is refractive index of the shape.
+    Therefore we cannot have shape-shape intersections as of yet.
+    Ray must enter shape from atmosphere, then exit back into atmosphere.
+    
+    '''
+    pass
+
+def reflect(line,plane): # mirror
+    pass
+
 def plane_from_points_single_ray(points):
     # grab normal vector only
     v1 = points[2]-points[0]
@@ -389,7 +405,7 @@ def distance_line_plane_single_ray(location,direction,n,ref):
     # normal vector and reference point describe plane
     return np.dot(ref-location,-n)/np.dot(direction,-n)
 
-def snells_law(line,plane,n1,n2,inshape):
+def snells_law_single_ray(line,plane,n1,n2,inshape):
     # line defined as direction vector
     # plane defined by normal vector
     # find new unit direction vector
