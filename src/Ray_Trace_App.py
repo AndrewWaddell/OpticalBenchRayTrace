@@ -6,7 +6,7 @@ Created on Fri Feb 25 16:29:15 2022
 """
 
 import numpy as np
-import csv
+from scipy.io import savemat
 
 
 class Scene:
@@ -367,18 +367,11 @@ test_bench.add_source()
 test_bench.add_shape()
 test_bench.trace()
 
-# save results to text file
 
-with open('data_transfer.txt','w') as f:
-    f.truncate()
-    f.write('pacc\n')
-    f.write(str(test_bench.rays.pacc)+'\n')
-    f.write('upacc\n')
-    f.write(str(test_bench.rays.upacc)+'\n')
-    f.write('dacc\n')
-    f.write(str(test_bench.rays.dacc)+'\n')
-    f.write('cm\n')
-    f.write(str(test_bench.shapes[0].cm)+'\n')
-    f.write('sp\n')
-    f.write(str(test_bench.shapes[0].p))
-
+mat_workspace = {"pacc":test_bench.rays.pacc,
+                 "upacc":test_bench.rays.upacc,
+                 "dacc":test_bench.rays.dacc,
+                 "sp":test_bench.shapes[0].p,
+                 "cm":test_bench.shapes[0].cm
+    }
+savemat("python_outputs.mat", mat_workspace)
