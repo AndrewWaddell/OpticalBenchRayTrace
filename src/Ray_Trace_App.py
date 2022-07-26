@@ -32,7 +32,7 @@ class Scene:
                       [3,-1,4]])
         cm = np.array([[0,2,3],
                       [1,2,3]])
-        self.shapes.append(Triangulated(loc,direc,n,p,cm,True,'Testglass'))
+        self.shapes.append(Triangulated(loc,direc,n,p,cm,False,'Testglass'))
 
 class Shape:
     def __init__(self,location,direction,n,mirror,name):
@@ -295,7 +295,8 @@ def plane_from_points(p):
     equation will work anyway'''
     v1 = p[:,2] - p[:,0]
     v2 = p[:,1] - p[:,0]
-    return(np.cross(v1,v2))
+    n = np.cross(v1,v2)
+    return n/np.linalg.norm(n,axis=1)
 
 def distance_line_plane(l0,l,n,p0):
     '''For the set of points (p) on a line described by p = l0 + l*d, where:
@@ -311,6 +312,8 @@ def distance_line_plane(l0,l,n,p0):
     
     Function works for multiple line,plane pairs, which are orded in the
     first dimension of the input array.
+    
+    Plane normals must be normalised.
     '''
     numerator = np.einsum('ij,ij->i',p0-l0,n) # dot product
     denominator = np.einsum('ij,ij->i',l,n) # dot product
