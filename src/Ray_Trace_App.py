@@ -7,6 +7,7 @@ Created on Fri Feb 25 16:29:15 2022
 
 import numpy as np
 from scipy.io import savemat
+from scipy.spatial import ConvexHull
 
 
 class Scene:
@@ -76,7 +77,7 @@ class Triangulated(Shape):
         p2r = p2.reshape(p2.shape[0]*p2.shape[1],2)
         p3r = p3.reshape(p3.shape[0]*p3.shape[1],2)
         rays_cob_rep = np.repeat(rays_cob[:,:2],self.cm.shape[0],axis=0) # broadcast rays over triangles
-        interior = triange_interior(rays_cob_rep,p1r,p2r,p3r).reshape(scene.rays.numrays,self.cm.shape[0])
+        interior = triangle_interior(rays_cob_rep,p1r,p2r,p3r).reshape(scene.rays.numrays,self.cm.shape[0])
         cmrep = np.repeat(self.cm[np.newaxis,:,:],scene.rays.numrays,axis=0)
         triangle_points = self.p[cmrep[interior]]
         d = np.inf*np.ones(interior.shape)
@@ -85,7 +86,8 @@ class Triangulated(Shape):
         d[interior.nonzero()] = distance_line_plane(scene.rays.p[i],
                             scene.rays.up[i],normals,triangle_points[:,0])
         min_distances = np.min(d,axis=1)
-        scene.rays.p[i] = scene.rays.p[i] + min_distances[i] * scene.rays.up[i]
+        broadcasted_d = np.repeat(min_distances[i,np.newaxis],3,axis=1)
+        scene.rays.p[i] = scene.rays.p[i] + broadcasted_d * scene.rays.up[i]
         if self.mirror:
             scene.rays.up[i] = reflect(scene.rays.up[i],normals)
         else:
@@ -265,39 +267,34 @@ def projection_operator(u,v):
     proj_u_v = np.multiply(u,np.repeat(scalar,3).reshape(numrays,3))
     return proj_u_v
 
-def triange_interior(query,p1,p2,p3):
+def triangle_interior(query,p1,p2,p3):
     ''' Tests whether the query point fits within the triangle created by
     points p1, p2 and p3. However, this function operates on multiple
     triangles at once, and multiple rays at once. Luckily, the input
     arrays have been reduced to a single list of rays and triangles.
-    This means the input shape for each argument is testcase*3dims.
+    This means the input shape for each argument is testcases*3dims.
     For example, 2 triangles and 4 rays will give us shape = 8*3
     
     Algorithm checks the number of points in the convex hull. If 4,
-    point is outside triangle, if 3 then point is inside.
-    
-    
-    
-    Does it deal with case of being parallel to triange?'''
-    # Solve query = p1 + a*(p2-p1) + b*(p3-p1)
-    # query - p1 = [p2:p3]-p1 * [a_b]
-    M = np.concatenate((p2[:,np.newaxis,:],p3[:,np.newaxis,:]),axis=1) # M = p2:p3
-    p1r = np.repeat(p1,2,axis=0).reshape(p1.shape[0],2,2) # broadcast p1 into M
-    a_b = np.linalg.solve(M-p1r,query-p1)
-    a_and_b_gt_0 = np.all(np.greater(a_b,np.zeros((a_b.shape[0],2))),axis=1)
-    a_plus_b_lt_1 = np.greater(np.ones(18),np.sum(a_b,axis=1))
-    return np.bitwise_and(a_and_b_gt_0,a_plus_b_lt_1)
+    point is outside triangle, if 3 then point is inside or on edge.'''
+    interior = np.zeros(query.shape[0])==np.zeros(query.shape[0])
+    for i,q in enumerate(query):
+        p = np.concatenate((q,p1[i],p2[i],p3[i]),axis=0).reshape(4,2)
+        hull = ConvexHull(p)
+        if hull.vertices.shape[0]==4:
+            interior[i] = False
+    return interior
 
 def plane_from_points(p):
     '''Finds the normal vector orthogonal to the plane described by 3 points
     in a triangle. Function works for n triangles, Input points p are shape:
-    n*3dims
-    Note, we don't need to normalise the normals because distance line-plane
-    equation will work anyway'''
-    v1 = p[:,2] - p[:,0]
-    v2 = p[:,1] - p[:,0]
+    n*3points*3dims'''
+    v1 = p[:,2,:] - p[:,0,:]
+    v2 = p[:,1,:] - p[:,0,:]
     n = np.cross(v1,v2)
-    return n/np.linalg.norm(n,axis=1)
+    l = np.linalg.norm(n,axis=1) # length of each normal vector
+    lr = np.repeat(l,3)
+    return n/lr.reshape(n.shape)
 
 def distance_line_plane(l0,l,n,p0):
     '''For the set of points (p) on a line described by p = l0 + l*d, where:
@@ -354,7 +351,9 @@ def cos_theta1(plane,line):
     '''If normal vector doesn't point towards direction of the incoming ray,
     then cos(theta1) would be negative, so we negate n to fix this.
     Implemented within a Snells Law function'''
-    plane = np.divide(plane,np.linalg.norm(plane,axis=1)) # normalise vectors
+    l = np.linalg.norm(plane,axis=1) # vector lengths
+    lr = np.repeat(l,3).reshape(plane.shape) # broadcast
+    plane = np.divide(plane,lr) # normalise vectors
     c1_with_negs = np.einsum('ij,ij->i',-plane,line) # dot product
     plane[c1_with_negs<0] *= -1
     c1 = np.einsum('ij,ij->i',-plane,line) # repeat with correct normals
