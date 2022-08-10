@@ -19,8 +19,12 @@ class Scene:
     def trace(self):
         for s in self.sources:
             self.rays.append(s.numrays,s.p,s.up)
-        for s in self.shapes:
-            s.trace(self)
+        self.rays.change_of_basis()
+        if len(self.shapes) > 1:
+            for i,s in enumerate(self.shapes):
+                pass
+        else:
+            shapes[0].trace(self)
     def add_source(self):
         self.sources.append(Source())
     def add_shape(self):
@@ -62,10 +66,10 @@ class Triangulated(Shape):
         self.p += v
         self.p *= k
         self.p -= v
+    def trace_low_res(self,scene):
+        pass
     def trace(self,scene):
-        cob = change_of_basis(scene.rays.up)
-        rays_cob = np.einsum('hij,hj->hi',cob,scene.rays.p) # perform change of basis to rays
-        cobrep = np.repeat(cob[:,np.newaxis,:,:],self.p.shape[0],axis=1)  # broadcast in advance
+        cobrep = np.repeat(scene.rays.cob[:,np.newaxis,:,:],self.p.shape[0],axis=1) # broadcast in advance
         prep = np.repeat(self.p[np.newaxis,:,:],scene.rays.numrays,axis=0) # broadcast in advance
         shape_cob = np.einsum('ghij,ghj->ghi',cobrep,prep) # perform change of basis to shape
         # shape_cob format: [rays:points:dimensions=3]
@@ -76,7 +80,7 @@ class Triangulated(Shape):
         p1r = p1.reshape(p1.shape[0]*p1.shape[1],2)
         p2r = p2.reshape(p2.shape[0]*p2.shape[1],2)
         p3r = p3.reshape(p3.shape[0]*p3.shape[1],2)
-        rays_cob_rep = np.repeat(rays_cob[:,:2],self.cm.shape[0],axis=0) # broadcast rays over triangles
+        rays_cob_rep = np.repeat(scene.rays.rays_cob[:,:2],self.cm.shape[0],axis=0) # broadcast rays over triangles
         interior = triangle_interior(rays_cob_rep,p1r,p2r,p3r).reshape(scene.rays.numrays,self.cm.shape[0])
         cmrep = np.repeat(self.cm[np.newaxis,:,:],scene.rays.numrays,axis=0)
         triangle_points = self.p[cmrep[interior]]
@@ -137,6 +141,18 @@ class Rays:
         self.inside = np.concatenate((self.inside,inside)) if self.inside.size else inside
         wavelength = np.repeat(wavelength,numrays)
         self.wavelength = np.concatenate((self.wavelength,wavelength)) if self.wavelength.size else wavelength
+    def change_of_basis(self):
+        '''computes a non-unique change of basis matrix for a vector in R3.
+        The 3rd dimension of the basis set is along the direction of up.
+        This function operates on multiple vectors at once where up is a 
+        matrix consisting of each vector nested within it. up is shape
+        (numrays,3)'''
+        orth1 = rotate_3d_vector_90(self.up)
+        orth2 = np.cross(orth1,self.up)
+        P = np.concatenate((orth1,orth2,self.up),axis=1).reshape(self.numrays,3,3).transpose(0,2,1)
+        Pnorm = np.divide(P,np.tile(np.linalg.norm(P,axis=1),3).reshape(self.numrays,3,3))
+        self.cobself.cob = np.linalg.inv(Pnorm)
+        self.rays_cob = np.einsum('hij,hj->hi',self.cob,self.p) # perform change of basis to rays
         
 class aspheric:
     def __init__(self,R,k,a4,a6,d):
