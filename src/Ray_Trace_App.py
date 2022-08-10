@@ -67,16 +67,19 @@ class Triangulated(Shape):
         self.p *= k
         self.p -= v
     def trace_low_res(self,scene):
+        self.shape_change_of_basis(scene)
         pass
-    def trace(self,scene):
+    def shape_change_of_basis(self,scene):
         cobrep = np.repeat(scene.rays.cob[:,np.newaxis,:,:],self.p.shape[0],axis=1) # broadcast in advance
         prep = np.repeat(self.p[np.newaxis,:,:],scene.rays.numrays,axis=0) # broadcast in advance
-        shape_cob = np.einsum('ghij,ghj->ghi',cobrep,prep) # perform change of basis to shape
+        self.shape_cob = np.einsum('ghij,ghj->ghi',cobrep,prep) # perform change of basis to shape
+    def trace(self,scene):
+        self.shape_change_of_basis(scene)
         # shape_cob format: [rays:points:dimensions=3]
         # shape for the following triangle points (before reshaping): [rays:triangles:dims=2]
-        p1 = shape_cob[:,self.cm[:,0],:2] 
-        p2 = shape_cob[:,self.cm[:,1],:2]
-        p3 = shape_cob[:,self.cm[:,2],:2]
+        p1 = self.shape_cob[:,self.cm[:,0],:2] 
+        p2 = self.shape_cob[:,self.cm[:,1],:2]
+        p3 = self.shape_cob[:,self.cm[:,2],:2]
         p1r = p1.reshape(p1.shape[0]*p1.shape[1],2)
         p2r = p2.reshape(p2.shape[0]*p2.shape[1],2)
         p3r = p3.reshape(p3.shape[0]*p3.shape[1],2)
