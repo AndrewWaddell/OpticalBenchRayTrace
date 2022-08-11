@@ -20,11 +20,13 @@ class Scene:
         for s in self.sources:
             self.rays.append(s.numrays,s.p,s.up)
         self.rays.change_of_basis()
-        if len(self.shapes) > 1:
-            for i,s in enumerate(self.shapes):
-                pass
-        else:
-            shapes[0].trace(self)
+        d = np.inf * np.ones((len(self.shapes),self.rays.numrays))
+        for i,s in enumerate(self.shapes):
+            s.change_of_basis(self) # grab shape points in terms of rays bases
+            if s.trace_low_res(self): # is shape in line of sight? (LoS)
+                d[i,:] = s.trace_d(self) # find distance to shape for each ray
+        # choose shape with lowest d for each ray
+        # update p & up for each selected shape intersection - using s.trace_save(d)
     def add_source(self):
         self.sources.append(Source())
     def add_shape(self):
@@ -67,19 +69,36 @@ class Triangulated(Shape):
         self.p *= k
         self.p -= v
     def trace_low_res(self,scene):
-        self.shape_change_of_basis(scene)
-        pass
-    def shape_change_of_basis(self,scene):
+        '''Determines if any of the rays intersect anywhere within this shape
+        We iterate over all of the rays one at a time.
+        First we construct a convex hull for the shape alone, and determine the number of points
+        that form the hull (number of vertices), num_v.
+        Then we concatenate the hull vertices with the ray and calculate a new hull, we call our test.
+        If there are more points in the hull, then the point lies outside the shape, and does not intersect.
+        In this case, we just continue to check for the next ray. If any ray intersects the shape then we
+        return a successful result.
+        If none of the rays intersect with the shape we return False.
+        '''
+        for i,shape_p in enumerate(self.p_cob): # for each ray
+            shape_hull = ConvexHull(shape_p[:,:2])
+            num_v = shape_hull.vertices.shape[0]
+            test_case = np.concatenate((shape_hull.points[shape_hull.vertices],scene.rays.rays_cob[np.newaxis,i,:2]))
+            hull_test = ConvexHull(test_case)
+            if hull_test.vertices.shape[0] <= num_v:
+                return True
+        return False
+    def change_of_basis(self,scene):
+        '''Calculates shape points in terms of new basis defined by ray directions'''
         cobrep = np.repeat(scene.rays.cob[:,np.newaxis,:,:],self.p.shape[0],axis=1) # broadcast in advance
         prep = np.repeat(self.p[np.newaxis,:,:],scene.rays.numrays,axis=0) # broadcast in advance
-        self.shape_cob = np.einsum('ghij,ghj->ghi',cobrep,prep) # perform change of basis to shape
-    def trace(self,scene):
-        self.shape_change_of_basis(scene)
-        # shape_cob format: [rays:points:dimensions=3]
+        self.p_cob = np.einsum('ghij,ghj->ghi',cobrep,prep) # perform change of basis to shape
+    def trace_d(self,scene):
+        '''Find the distance to the shape for each ray intersection'''
+        # p_cob format: [rays:points:dimensions=3]
         # shape for the following triangle points (before reshaping): [rays:triangles:dims=2]
-        p1 = self.shape_cob[:,self.cm[:,0],:2] 
-        p2 = self.shape_cob[:,self.cm[:,1],:2]
-        p3 = self.shape_cob[:,self.cm[:,2],:2]
+        p1 = self.p_cob[:,self.cm[:,0],:2] 
+        p2 = self.p_cob[:,self.cm[:,1],:2]
+        p3 = self.p_cob[:,self.cm[:,2],:2]
         p1r = p1.reshape(p1.shape[0]*p1.shape[1],2)
         p2r = p2.reshape(p2.shape[0]*p2.shape[1],2)
         p3r = p3.reshape(p3.shape[0]*p3.shape[1],2)
@@ -88,22 +107,28 @@ class Triangulated(Shape):
         cmrep = np.repeat(self.cm[np.newaxis,:,:],scene.rays.numrays,axis=0)
         triangle_points = self.p[cmrep[interior]]
         d = np.inf*np.ones(interior.shape)
-        i = interior.nonzero()[0] # numerical index of intersecting rays
-        normals = plane_from_points(triangle_points)
-        d[interior.nonzero()] = distance_line_plane(scene.rays.p[i],
-                            scene.rays.up[i],normals,triangle_points[:,0])
-        min_distances = np.min(d,axis=1)
-        broadcasted_d = np.repeat(min_distances[i,np.newaxis],3,axis=1)
-        scene.rays.p[i] = scene.rays.p[i] + broadcasted_d * scene.rays.up[i]
+        self.i = interior.nonzero()[0] # numerical index of intersecting rays
+        self.normals = plane_from_points(triangle_points)
+        d[interior.nonzero()] = distance_line_plane(scene.rays.p[self.i],
+                            scene.rays.up[self.i],self.normals,triangle_points[:,0])
+        self.min_distances = np.min(d,axis=1)
+        return self.min_distances
+    def trace_save(self,scene):
+        broadcasted_d = np.repeat(self.min_distances[self.i,np.newaxis],3,axis=1)
+        scene.rays.p[self.i] = scene.rays.p[self.i] + broadcasted_d * scene.rays.up[self.i]
         if self.mirror:
-            scene.rays.up[i] = reflect(scene.rays.up[i],normals)
+            scene.rays.up[self.i] = reflect(scene.rays.up[self.i],self.normals)
         else:
-            scene.rays.up[i] = refract(scene.rays.inside[i],scene.n,self.n,scene.rays.up[i],normals)
-            scene.rays.inside[i] = np.logical_not(scene.rays.inside[i])
-        scene.rays.pacc = np.concatenate((scene.rays.pacc,scene.rays.p[i]),axis=0)
-        scene.rays.upacc = np.concatenate((scene.rays.upacc,scene.rays.up[i]),axis=0)
-        scene.rays.dacc[i] = min_distances[i]
-        scene.rays.dacc = np.concatenate((scene.rays.dacc,np.zeros(i.shape)),axis=0)
+            scene.rays.up[self.i] = refract(
+                scene.rays.inside[self.i],
+                scene.n,self.n,
+                scene.rays.up[self.i],
+                self.normals)
+            scene.rays.inside[self.i] = np.logical_not(scene.rays.inside[self.i])
+        scene.rays.pacc = np.concatenate((scene.rays.pacc,scene.rays.p[self.i]),axis=0)
+        scene.rays.upacc = np.concatenate((scene.rays.upacc,scene.rays.up[self.i]),axis=0)
+        scene.rays.dacc[self.i] = self.min_distances[self.i]
+        scene.rays.dacc = np.concatenate((scene.rays.dacc,np.zeros(self.i.shape)),axis=0)
 
 class Source:
     def __init__(self):
@@ -154,7 +179,7 @@ class Rays:
         orth2 = np.cross(orth1,self.up)
         P = np.concatenate((orth1,orth2,self.up),axis=1).reshape(self.numrays,3,3).transpose(0,2,1)
         Pnorm = np.divide(P,np.tile(np.linalg.norm(P,axis=1),3).reshape(self.numrays,3,3))
-        self.cobself.cob = np.linalg.inv(Pnorm)
+        self.cob = np.linalg.inv(Pnorm)
         self.rays_cob = np.einsum('hij,hj->hi',self.cob,self.p) # perform change of basis to rays
         
 class aspheric:
@@ -202,20 +227,6 @@ def createshape():
     points = np.transpose(pointsxyz)
     lens1.connectivity_matrix()
     shapes.append(Shape(points,np.array(lens1.cm),1.52))
-
-def change_of_basis(v):
-    '''computes a non-unique change of basis matrix for a vector in R3.
-    The 3rd dimension of the basis set is along the direction of v.
-    This function operates on multiple vectors at once where v is a 
-    matrix consisting of each vector nested within it. v is shape
-    (numrays,3)'''
-    numrays = v.shape[0]
-    orth1 = rotate_3d_vector_90(v)
-    orth2 = np.cross(orth1,v)
-    P = np.concatenate((orth1,orth2,v),axis=1).reshape(numrays,3,3).transpose(0,2,1)
-    Pnorm = np.divide(P,np.tile(np.linalg.norm(P,axis=1),3).reshape(numrays,3,3))
-    Pinv = np.linalg.inv(Pnorm)
-    return Pinv
 
 def rotate_3d_vector_90(v):
     '''Creates 3 rotation matrices evaluated at theta = pi/2.
@@ -356,6 +367,7 @@ test_bench.add_source()
 test_bench.add_shape()
 test_bench.trace()
 
+# output to matlab for plotting:
 
 mat_workspace = {"pacc":test_bench.rays.pacc,
                  "upacc":test_bench.rays.upacc,
