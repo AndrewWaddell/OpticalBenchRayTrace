@@ -218,16 +218,6 @@ class aspheric:
             self.cm.append([self.depth*ring+1+i,self.depth*ring+1,self.depth*(ring+1)+1])
             self.cm.append([self.depth*ring+1+i,self.depth*(ring+1)+1+i,self.depth*(ring+1)+1])
 
-def createshape():
-    global shapes
-    shapes = [] # list of shape objects
-    lens1 = aspheric(1,0,0,0,0.3)
-    lens1.points(10)
-    pointsxyz= np.array([lens1.x,lens1.y,lens1.z])
-    points = np.transpose(pointsxyz)
-    lens1.connectivity_matrix()
-    shapes.append(Shape(points,np.array(lens1.cm),1.52))
-
 def rotate_3d_vector_90(v):
     '''Creates 3 rotation matrices evaluated at theta = pi/2.
     Rotates the input vector by 90deg over each axis, one at
@@ -245,28 +235,6 @@ def rotate_3d_vector_90(v):
     v_rx_ry = np.einsum('ijk,ik->ij',Ryr,v_rx)
     v_rx_ry_rz = np.einsum('ijk,ik->ij',Rzr,v_rx_ry)
     return v_rx_ry_rz
-
-def GramSmchidt(u1):
-    '''produces one new vector u2 that is orthogonal to vector u1.
-    u1 is in R3 and must have 3 entries.
-    u1 is vectorised to work on multiple rays and should be shape
-    (numrays,3)'''
-    v = np.copy(u1) # first create an arbitrary vector v, that isn't u
-    while np.any(np.all(v==u1,axis=1)): # for the unlikely event any random v gives u
-        v = np.random.randn(u1.shape[0],3)
-    u2 = v - projection_operator(u1,v)
-    return u2
-
-def projection_operator(u,v):
-    '''projects the vector v orthogonally onto the line spanned by vector u
-    inputs u and v are vectorised into a matrix where each nested entry 
-    represents each ray'''
-    numrays = u.shape[0]
-    udotv = np.inner(u,v)[np.nonzero(np.eye(numrays))]
-    udotu = np.square(np.linalg.norm(u,axis=1))
-    scalar = np.divide(udotv,udotu)
-    proj_u_v = np.multiply(u,np.repeat(scalar,3).reshape(numrays,3))
-    return proj_u_v
 
 def triangle_interior(query,p1,p2,p3):
     ''' Tests whether the query point fits within the triangle created by
