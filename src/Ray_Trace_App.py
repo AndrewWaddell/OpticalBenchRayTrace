@@ -7,6 +7,7 @@ Created on Fri Feb 25 16:29:15 2022
 
 import numpy as np
 from scipy.io import savemat
+from scipy.io import loadmat
 from scipy.spatial import ConvexHull
 
 
@@ -34,17 +35,17 @@ class Scene:
         # update p & up for each selected shape intersection - using s.trace_save(d)
     def add_source(self):
         self.sources.append(Source())
-    def add_shape(self):
+    def add_shape(self,p,cm):
         # placeholder for now
         loc = np.array([0,0,0])
         direc = np.array([1,0,0])
         n = 1.52
-        p = np.array([[-1,-1,1],
-                      [3,3,2],
-                      [-1,3,3],
-                      [3,-1,4]])
-        cm = np.array([[0,2,3],
-                      [1,2,3]])
+        # p = np.array([[-1,-1,1],
+        #               [3,3,2],
+        #               [-1,3,3],
+        #               [3,-1,4]])
+        # cm = np.array([[0,2,3],
+        #               [1,2,3]])
         self.shapes.append(Triangulated(loc,direc,n,p,cm,False,'Testglass'))
 
 class Shape:
@@ -335,10 +336,16 @@ def cos_theta1(plane,line):
     return c1,plane
 
 
+# inherit input from matlab
+
+mat_contents = loadmat("python_inputs.mat")
+p = mat_contents['p']
+cm = mat_contents['cm']
+
 
 test_bench = Scene()
 test_bench.add_source()
-test_bench.add_shape()
+test_bench.add_shape(p,cm)
 test_bench.trace()
 
 # output to matlab for plotting:
