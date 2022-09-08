@@ -25,7 +25,12 @@ class Scene:
             s.change_of_basis(self) # grab shape points in terms of rays bases
             if s.trace_low_res(self): # is shape in line of sight? (LoS)
                 d[i,:] = s.trace_d(self) # find distance to shape for each ray
-        # choose shape with lowest d for each ray
+            else:
+                d[i,:] = np.zeros((1,d.shape[1]))
+        closest_shapes = np.nonzero(np.where(d==d.min(axis=0),d,0).T)[1]
+        for i,s in enumerate(self.shapes):
+            s.trace_save(self,closest_shapes==i)
+            
         # update p & up for each selected shape intersection - using s.trace_save(d)
     def add_source(self):
         self.sources.append(Source())
@@ -112,23 +117,24 @@ class Triangulated(Shape):
         d[interior.nonzero()] = distance_line_plane(scene.rays.p[self.i],
                             scene.rays.up[self.i],self.normals,triangle_points[:,0])
         self.min_distances = np.min(d,axis=1)
+        self.normals = self.normals[np.unique(self.i,return_index=True)[1]] # choose triangle from repeats
         return self.min_distances
-    def trace_save(self,scene):
-        broadcasted_d = np.repeat(self.min_distances[self.i,np.newaxis],3,axis=1)
-        scene.rays.p[self.i] = scene.rays.p[self.i] + broadcasted_d * scene.rays.up[self.i]
+    def trace_save(self,scene,i):
+        broadcasted_d = np.repeat(self.min_distances[i,np.newaxis],3,axis=1)
+        scene.rays.p[i] = scene.rays.p[i] + broadcasted_d * scene.rays.up[i]
         if self.mirror:
-            scene.rays.up[self.i] = reflect(scene.rays.up[self.i],self.normals)
+            scene.rays.up[i] = reflect(scene.rays.up[i],self.normals[i])
         else:
-            scene.rays.up[self.i] = refract(
-                scene.rays.inside[self.i],
+            scene.rays.up[i] = refract(
+                scene.rays.inside[i],
                 scene.n,self.n,
-                scene.rays.up[self.i],
-                self.normals)
-            scene.rays.inside[self.i] = np.logical_not(scene.rays.inside[self.i])
-        scene.rays.pacc = np.concatenate((scene.rays.pacc,scene.rays.p[self.i]),axis=0)
-        scene.rays.upacc = np.concatenate((scene.rays.upacc,scene.rays.up[self.i]),axis=0)
-        scene.rays.dacc[self.i] = self.min_distances[self.i]
-        scene.rays.dacc = np.concatenate((scene.rays.dacc,np.zeros(self.i.shape)),axis=0)
+                scene.rays.up[i],
+                self.normals[i])
+            scene.rays.inside[i] = np.logical_not(scene.rays.inside[i])
+        scene.rays.pacc = np.concatenate((scene.rays.pacc,scene.rays.p[i]),axis=0)
+        scene.rays.upacc = np.concatenate((scene.rays.upacc,scene.rays.up[i]),axis=0)
+        scene.rays.dacc[i] = self.min_distances[i]
+        scene.rays.dacc = np.concatenate((scene.rays.dacc,np.zeros(i.shape)),axis=0)
 
 class Source:
     def __init__(self):
