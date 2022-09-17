@@ -89,7 +89,7 @@ class Triangulated(Shape):
         therefore is considered as an intersection.
         '''
         # add each ray to each group of test points
-        test_cases = np.concatenate((self.p_cob,scene.rays.rays_cob[:,np.newaxis,:]),axis=1)
+        test_cases = np.concatenate((self.p_cob[:,:,:2],scene.rays.rays_cob[:,np.newaxis,:2]),axis=1)
         ray = self.p.shape[0] # gives index of ray, which sits after shape points
         for i in range(scene.rays.numrays):
             ch = ConvexHull(test_cases[i])
