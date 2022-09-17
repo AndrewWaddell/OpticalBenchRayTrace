@@ -134,6 +134,7 @@ class Triangulated(Shape):
         self.normals = plane_from_points(triangle_points)
         d[interior.nonzero()] = distance_line_plane(scene.rays.p[self.i],
                             scene.rays.up[self.i],self.normals,triangle_points[:,0])
+        d[d<0]=np.inf # for intersections that take place in the wrong direction of the ray
         self.min_distances = np.min(d,axis=1)
         self.normals = self.normals[np.unique(self.i,return_index=True)[1]] # choose triangle from repeats
         return self.min_distances
@@ -159,13 +160,13 @@ class Source:
     def __init__(self):
         # placeholder values for now
         self.numrays = 9
-        x = np.repeat(np.arange(3),3)
-        y = np.tile(np.arange(3),3)
-        z = np.zeros(9)
+        x = np.repeat(np.linspace(-50,50,3),3)
+        z = np.tile(np.linspace(-40,40,3),3)
+        y = -30*np.ones(9)
         self.p = np.column_stack((x,y,z))
         x = np.zeros(9)
-        y = np.zeros(9)
-        z = np.ones(9)
+        y = np.ones(9)
+        z = np.zeros(9)
         self.up = np.column_stack((x,y,z))
 
 class Rays:
@@ -246,7 +247,12 @@ class aspheric:
 def rotate_3d_vector_90(v):
     '''Creates 3 rotation matrices evaluated at theta = pi/2.
     Rotates the input vector by 90deg over each axis, one at
-    a time to give an orthogonal vector in R3'''
+    a time to give an orthogonal vector in R3
+    
+    
+    This function doesnt work. Rotating 3 times gives the same vector.
+    I should use gramSchmidt process from a rotated vector.
+    '''
     # Create rotation matrices
     Rx = np.array([[1,0,0],[0,0,-1],[0,1,0]])
     Ry = np.array([[0,0,1],[0,1,0],[-1,0,0]])
@@ -371,7 +377,7 @@ cm = mat_contents['cm']
 test_bench = Scene()
 test_bench.add_source()
 # test_bench.add_shape(p.T,cm)
-test_bench.import_shape('test_cube.stl')
+test_bench.import_shape('polygon_heart.stl')
 test_bench.trace()
 
 # output to matlab for plotting:
