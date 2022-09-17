@@ -128,13 +128,13 @@ class Triangulated(Shape):
         broadcasted_d = np.repeat(self.min_distances[i,np.newaxis],3,axis=1)
         scene.rays.p[i] = scene.rays.p[i] + broadcasted_d * scene.rays.up[i]
         if self.mirror:
-            scene.rays.up[i] = reflect(scene.rays.up[i],self.normals[i])
+            scene.rays.up[i] = reflect(scene.rays.up[i],self.normals)
         else:
             scene.rays.up[i] = refract(
                 scene.rays.inside[i],
                 scene.n,self.n,
                 scene.rays.up[i],
-                self.normals[i])
+                self.normals)
             scene.rays.inside[i] = np.logical_not(scene.rays.inside[i])
         scene.rays.pacc = np.concatenate((scene.rays.pacc,scene.rays.p[i]),axis=0)
         scene.rays.upacc = np.concatenate((scene.rays.upacc,scene.rays.up[i]),axis=0)
