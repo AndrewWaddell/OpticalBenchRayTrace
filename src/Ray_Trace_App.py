@@ -75,22 +75,22 @@ class Triangulated(Shape):
         self.p *= k
         self.p -= v
     def trace_low_res(self,scene):
-        '''Determines if any of the rays intersect anywhere within this shape
-        We iterate over all of the rays one at a time.
-        First we construct a convex hull for the shape alone, and determine the number of points
-        that form the hull (number of vertices), num_v.
-        Then we concatenate the hull vertices with the ray and calculate a new hull, we call our test.
-        If there are more points in the hull, then the point lies outside the shape, and does not intersect.
-        In this case, we just continue to check for the next ray. If any ray intersects the shape then we
-        return a successful result.
-        If none of the rays intersect with the shape we return False.
+        '''Determines if any of the rays intersect anywhere within this shape.
+        We iterate one ray at a time, until we find an intersecting ray.
+        We construct a convex hull with the shape points and the ray,
+        then ask if the ray makes up a part of the convex hull.
+        If it does, then the ray lies outside of the shape. We return true.
+        If it does not, then we can conclude that we have a ray that intersects shape.
+        we return false.
+        If the ray lies on the edge of the shape, it is not part of the convex hull
+        therefore is considered as an intersection.
         '''
-        for i,shape_p in enumerate(self.p_cob): # for each ray
-            shape_hull = ConvexHull(shape_p[:,:2])
-            num_v = shape_hull.vertices.shape[0]
-            test_case = np.concatenate((shape_hull.points[shape_hull.vertices],scene.rays.rays_cob[np.newaxis,i,:2]))
-            hull_test = ConvexHull(test_case)
-            if hull_test.vertices.shape[0] <= num_v:
+        # add each ray to each group of test points
+        test_cases = np.concatenate((self.p_cob,scene.rays.rays_cob[:,np.newaxis,:]),axis=1)
+        ray = self.p.shape[0] # gives index of ray, which sits after shape points
+        for i in range(scene.rays.numrays):
+            ch = ConvexHull(test_cases[i])
+            if not(ray in ch.vertices):
                 return True
         return False
     def change_of_basis(self,scene):
@@ -345,7 +345,7 @@ cm = mat_contents['cm']
 
 test_bench = Scene()
 test_bench.add_source()
-test_bench.add_shape(p,cm)
+test_bench.add_shape(p.T,cm)
 test_bench.trace()
 
 # output to matlab for plotting:
