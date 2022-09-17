@@ -22,10 +22,9 @@ cm = [...
     5 6 7;...
     6 7 8;...
     ];
-% TR = delaunayTriangulation(p);
-% tetramesh(TR)
-TR = triangulation(cm,p);
-trisurf(TR)
 
+TR = triangulation(cm,p);
+% trisurf(TR)
+stlwrite(TR,'test_cube.stl')
 
 

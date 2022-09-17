@@ -9,6 +9,7 @@ import numpy as np
 from scipy.io import savemat
 from scipy.io import loadmat
 from scipy.spatial import ConvexHull
+from stl import mesh
 
 
 class Scene:
@@ -50,6 +51,19 @@ class Scene:
         # cm = np.array([[0,2,3],
         #               [1,2,3]])
         self.shapes.append(Triangulated(loc,direc,n,p,cm,False,'Testglass'))
+    def import_shape(self,filename):
+        my_mesh = mesh.Mesh.from_file(filename)
+        pts = my_mesh.v0.shape[0]
+        p = my_mesh.v0[:]
+        p = np.concatenate((p,my_mesh.v1))
+        p = np.concatenate((p,my_mesh.v2))
+        cm = np.vstack((np.linspace(0,pts-1,pts),
+                        np.linspace(pts,2*pts-1,pts),
+                        np.linspace(2*pts,3*pts-1,pts))).T.astype(int)
+        loc = np.array([0,0,0])
+        direc = np.array([1,0,0])
+        n = 1.52
+        self.shapes.append(Triangulated(loc,direc,n,p,cm,False,filename))
 
 class Shape:
     def __init__(self,location,direction,n,mirror,name):
@@ -105,7 +119,7 @@ class Triangulated(Shape):
         '''Find the distance to the shape for each ray intersection'''
         # p_cob format: [rays:points:dimensions=3]
         # shape for the following triangle points (before reshaping): [rays:triangles:dims=2]
-        p1 = self.p_cob[:,self.cm[:,0],:2] 
+        p1 = self.p_cob[:,self.cm[:,0],:2]
         p2 = self.p_cob[:,self.cm[:,1],:2]
         p3 = self.p_cob[:,self.cm[:,2],:2]
         p1r = p1.reshape(p1.shape[0]*p1.shape[1],2)
@@ -259,6 +273,13 @@ def triangle_interior(query,p1,p2,p3):
     point is outside triangle, if 3 then point is inside or on edge.'''
     interior = np.zeros(query.shape[0])==np.zeros(query.shape[0])
     for i,q in enumerate(query):
+        if np.cross(p3[i]-p1[i],p2[i]-p1[i])==0:
+            # points lie on line, face is parallel to ray
+            interior[i] = False
+            continue
+        if np.equal(q,(p1[i],p2[i],p3[i])).all(1).any():
+            # q is a triangle vertex
+            continue
         p = np.concatenate((q,p1[i],p2[i],p3[i]),axis=0).reshape(4,2)
         hull = ConvexHull(p)
         if hull.vertices.shape[0]==4:
@@ -349,7 +370,8 @@ cm = mat_contents['cm']
 
 test_bench = Scene()
 test_bench.add_source()
-test_bench.add_shape(p.T,cm)
+# test_bench.add_shape(p.T,cm)
+test_bench.import_shape('test_cube.stl')
 test_bench.trace()
 
 # output to matlab for plotting:
