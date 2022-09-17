@@ -24,10 +24,10 @@ class Scene:
         d = np.inf * np.ones((len(self.shapes),self.rays.numrays))
         for i,s in enumerate(self.shapes):
             s.change_of_basis(self) # grab shape points in terms of rays bases
-            if s.trace_low_res(self): # is shape in line of sight? (LoS)
+            if s.trace_low_res(self): # is shape in line of sight?
                 d[i,:] = s.trace_d(self) # find distance to shape for each ray
             else:
-                d[i,:] = np.zeros((1,d.shape[1]))
+                d[i,:] = np.inf*np.ones((1,d.shape[1]))
         closest_shapes = np.nonzero(np.where(d==d.min(axis=0),d,0).T)[1]
         for i,s in enumerate(self.shapes):
             s.trace_save(self,closest_shapes==i)
