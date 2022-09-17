@@ -139,7 +139,7 @@ class Triangulated(Shape):
         scene.rays.pacc = np.concatenate((scene.rays.pacc,scene.rays.p[i]),axis=0)
         scene.rays.upacc = np.concatenate((scene.rays.upacc,scene.rays.up[i]),axis=0)
         scene.rays.dacc[i] = self.min_distances[i]
-        scene.rays.dacc = np.concatenate((scene.rays.dacc,np.zeros(i.shape)),axis=0)
+        scene.rays.dacc = np.concatenate((scene.rays.dacc,np.zeros(np.count_nonzero(i))),axis=0)
 
 class Source:
     def __init__(self):
