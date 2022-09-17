@@ -20,19 +20,22 @@ class Scene:
     def trace(self):
         for s in self.sources:
             self.rays.append(s.numrays,s.p,s.up)
-        self.rays.change_of_basis()
-        d = np.inf * np.ones((len(self.shapes),self.rays.numrays))
+        self.rays.change_of_basis() # create cob matrix for each ray
+        d = np.inf * np.ones((len(self.shapes),self.rays.numrays)) # initialise d
+        # conduct a single iteration of trace
         for i,s in enumerate(self.shapes):
             s.change_of_basis(self) # grab shape points in terms of rays bases
             if s.trace_low_res(self): # is shape in line of sight?
                 d[i,:] = s.trace_d(self) # find distance to shape for each ray
             else:
-                d[i,:] = np.inf*np.ones((1,d.shape[1]))
-        closest_shapes = np.nonzero(np.where(d==d.min(axis=0),d,0).T)[1]
+                d[i,:] = np.inf*np.ones((1,d.shape[1])) # no rays intersected shape
+        closest_shapes_d = d.min(axis=0)
+        broadcasted_csd = np.repeat(closest_shapes_d[np.newaxis,:],d.shape[0],axis=0)
+        closest_index = d==broadcasted_csd
+        closest_index[np.isinf(d)]=False
         for i,s in enumerate(self.shapes):
-            s.trace_save(self,closest_shapes==i)
-            
-        # update p & up for each selected shape intersection - using s.trace_save(d)
+            if not(np.all(closest_index[i]==False)): # optimise by skipping shapes without intersection
+                s.trace_save(self,closest_index[i])
     def add_source(self):
         self.sources.append(Source())
     def add_shape(self,p,cm):
@@ -121,6 +124,7 @@ class Triangulated(Shape):
         self.normals = self.normals[np.unique(self.i,return_index=True)[1]] # choose triangle from repeats
         return self.min_distances
     def trace_save(self,scene,i):
+        '''Update the ray location and direction and accumulation logs for rays at index i of this shape'''
         broadcasted_d = np.repeat(self.min_distances[i,np.newaxis],3,axis=1)
         scene.rays.p[i] = scene.rays.p[i] + broadcasted_d * scene.rays.up[i]
         if self.mirror:
