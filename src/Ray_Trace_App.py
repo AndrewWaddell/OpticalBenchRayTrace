@@ -79,9 +79,23 @@ class Triangulated(Shape):
         super().__init__(location,direction,n,mirror,name)
         self.p = p # All shape vertices in 3D (points)
         self.cm = cm # triangle connectivity matrix (sides)
-    def rotate(self,axis_loc,axis_dir):
-        '''rotate points clockwise around axis defined as a vector with location and direction'''
-        pass
+    def rotate(self,axis,theta):
+        '''rotate points clockwise around axis by angle theta'''
+        a = axis
+        R=np.zeros((len(self.p),3))
+        c = np.cos(theta)
+        s = np.sin(theta)
+         # i'm currently removing the for loop
+        dap = np.dot(a,self.p)
+        adap = np.multiply(a,dap)
+        ap = np.cross(a,p)
+        cap = np.multiply(c,ap)
+        capa = np.cross(cap,a)
+        sap = np.multiply(s,ap)
+        
+        R[i] = adap + capa + sap
+        self.p = R
+        
     def translate(self,v):
         '''move shape in direction and distance of v'''
         self.p += v
@@ -246,26 +260,22 @@ class aspheric:
 
 def rotate_3d_vector_90(v):
     '''Creates 3 rotation matrices evaluated at theta = pi/2.
-    Rotates the input vector by 90deg over each axis, one at
+    Rotates the input vector by 90deg over two axes, one at
     a time to give an orthogonal vector in R3
-    
-    
-    This function doesnt work. Rotating 3 times gives the same vector.
-    I should use gramSchmidt process from a rotated vector.
     '''
     # Create rotation matrices
     Rx = np.array([[1,0,0],[0,0,-1],[0,1,0]])
     Ry = np.array([[0,0,1],[0,1,0],[-1,0,0]])
-    Rz = np.array([[0,-1,0],[1,0,0],[0,0,1]])
+    # Rz = np.array([[0,-1,0],[1,0,0],[0,0,1]])
     # Broadcast matrices to accommodate several input vectors
     Rxr = np.repeat(Rx[np.newaxis,:,:],v.shape[0],axis=0)
     Ryr = np.repeat(Ry[np.newaxis,:,:],v.shape[0],axis=0)
-    Rzr = np.repeat(Rz[np.newaxis,:,:],v.shape[0],axis=0)
+    # Rzr = np.repeat(Rz[np.newaxis,:,:],v.shape[0],axis=0)
     # Rotate vectors by matrix multiplication
     v_rx = np.einsum('ijk,ik->ij',Rxr,v)
     v_rx_ry = np.einsum('ijk,ik->ij',Ryr,v_rx)
-    v_rx_ry_rz = np.einsum('ijk,ik->ij',Rzr,v_rx_ry)
-    return v_rx_ry_rz
+    # v_rx_ry_rz = np.einsum('ijk,ik->ij',Rzr,v_rx_ry)
+    return v_rx_ry # rotate only twice
 
 def triangle_interior(query,p1,p2,p3):
     ''' Tests whether the query point fits within the triangle created by
@@ -275,8 +285,10 @@ def triangle_interior(query,p1,p2,p3):
     This means the input shape for each argument is testcases*3dims.
     For example, 2 triangles and 4 rays will give us shape = 8*3
     
-    Algorithm checks the number of points in the convex hull. If 4,
-    point is outside triangle, if 3 then point is inside or on edge.'''
+    Algorithm checks for whether the query point lies in the convex hull.
+    If it lies within the triangle or on an edge it will not be 
+    classified as part of the convex hull, therefore it is within the
+    triangle, denoted as interior = true. Otherwise false'''
     interior = np.zeros(query.shape[0])==np.zeros(query.shape[0])
     for i,q in enumerate(query):
         if np.cross(p3[i]-p1[i],p2[i]-p1[i])==0:
@@ -288,7 +300,7 @@ def triangle_interior(query,p1,p2,p3):
             continue
         p = np.concatenate((q,p1[i],p2[i],p3[i]),axis=0).reshape(4,2)
         hull = ConvexHull(p)
-        if hull.vertices.shape[0]==4:
+        if 0 in hull.vertices: # (query is index 0)
             interior[i] = False
     return interior
 
@@ -378,6 +390,8 @@ test_bench = Scene()
 test_bench.add_source()
 # test_bench.add_shape(p.T,cm)
 test_bench.import_shape('polygon_heart.stl')
+# test_bench.shapes[0].translate([0,0,30])
+test_bench.shapes[0].rotate([0,0,1],np.pi/3)
 test_bench.trace()
 
 # output to matlab for plotting:
